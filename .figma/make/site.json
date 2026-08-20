@@ -1,0 +1,10 @@
+{
+  "description": "Provides seamless access to database content without requiring user login, enabling quick and easy data retrieval for all users.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

@@ -1,0 +1,855 @@
+PRAGMA foreign_keys = ON;
+
+-- ============================================================
+-- 1. CLIENTES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS clientes (
+    id_cliente INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    telefono TEXT
+);
+
+
+-- ============================================================
+-- 2. MOTOS
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS motos (
+    id_moto INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    id_cliente INTEGER,
+
+    marca TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    anio INTEGER,
+    cilindraje TEXT,
+    tipo_motor TEXT,
+    refrigeracion TEXT,
+    sistema_combustible TEXT,
+
+    -- ========================================================
+    -- 1. MOTOR
+    -- ========================================================
+
+    bloque_carter_motor TEXT,
+    cilindro TEXT,
+    culata TEXT,
+    piston TEXT,
+    aros_piston TEXT,
+    bulon_piston TEXT,
+    biela TEXT,
+    ciguenal TEXT,
+    arbol_levas TEXT,
+    valvulas_admision_escape TEXT,
+    resortes_valvula TEXT,
+    balancines TEXT,
+    cadena_distribucion TEXT,
+    tensor_distribucion TEXT,
+    engranajes_distribucion TEXT,
+    bomba_aceite TEXT,
+    filtro_aceite TEXT,
+    tapon_drenaje TEXT,
+    carter_aceite TEXT,
+
+    -- ========================================================
+    -- 2. SISTEMA DE TRANSMISION
+    -- ========================================================
+
+    embrague TEXT,
+    discos_embrague TEXT,
+    separadores_embrague TEXT,
+    canasta_campana_embrague TEXT,
+    plato_presion TEXT,
+    resortes_embrague TEXT,
+    caja_cambios TEXT,
+    ejes_transmision TEXT,
+    engranajes TEXT,
+    selector_cambios TEXT,
+    horquillas_selectoras TEXT,
+    pinon_salida TEXT,
+    cadena TEXT,
+    corona_trasera TEXT,
+    tensor_ajustadores_cadena TEXT,
+
+    -- ========================================================
+    -- 3. SISTEMA DE COMBUSTIBLE
+    -- ========================================================
+
+    tanque_combustible TEXT,
+    tapa_tanque TEXT,
+    llave_combustible TEXT,
+    bomba_gasolina TEXT,
+    filtro_combustible TEXT,
+    carburador_inyector TEXT,
+    cuerpo_aceleracion TEXT,
+    mangueras_combustible TEXT,
+    regulador_presion TEXT,
+    inyectores TEXT,
+    flotador_sensor_nivel TEXT,
+
+    -- ========================================================
+    -- 4. ADMISION Y ESCAPE
+    -- ========================================================
+
+    filtro_aire TEXT,
+    caja_filtro_aire TEXT,
+    conductos_admision TEXT,
+    multiple_admision TEXT,
+    escape TEXT,
+    multiple_escape TEXT,
+    silenciador TEXT,
+    catalizador TEXT,
+    sensor_oxigeno TEXT,
+
+    -- ========================================================
+    -- 5. REFRIGERACION
+    -- ========================================================
+
+    radiador TEXT,
+    ventilador TEXT,
+    bomba_agua TEXT,
+    mangueras_refrigeracion TEXT,
+    termostato TEXT,
+    deposito_refrigerante TEXT,
+    sensor_temperatura TEXT,
+    aletas_refrigeracion TEXT,
+    conductos_deflectores_aire TEXT,
+
+    -- ========================================================
+    -- 6. RUEDAS Y FRENOS
+    -- ========================================================
+
+    rin_delantero TEXT,
+    neumatico_delantero TEXT,
+    camara_delantera TEXT,
+    eje_delantero TEXT,
+    rodamientos_delanteros TEXT,
+    disco_freno_delantero TEXT,
+
+    rin_trasero TEXT,
+    neumatico_trasero TEXT,
+    camara_trasera TEXT,
+    eje_trasero TEXT,
+    rodamientos_traseros TEXT,
+    corona TEXT,
+    disco_freno_trasero TEXT,
+    tambor_freno_trasero TEXT,
+
+    maneta_freno TEXT,
+    bomba_freno TEXT,
+    deposito_liquido_freno TEXT,
+    latiguillo_manguera_freno TEXT,
+    pinza_freno TEXT,
+    pastillas_freno TEXT,
+    disco_freno TEXT,
+    tambor TEXT,
+    zapatas TEXT,
+
+    -- ========================================================
+    -- 7. CHASIS Y SUSPENSION
+    -- ========================================================
+
+    chasis_bastidor TEXT,
+    subchasis TEXT,
+    basculante TEXT,
+    amortiguador_trasero TEXT,
+    horquilla_delantera TEXT,
+    barras_horquilla TEXT,
+    botellas_horquilla TEXT,
+    resortes_horquilla TEXT,
+    tijas_superior_inferior TEXT,
+    rodamientos_direccion TEXT,
+    eje_direccion TEXT,
+
+    -- ========================================================
+    -- 8. DIRECCION Y CONTROLES
+    -- ========================================================
+
+    manillar TEXT,
+    punos TEXT,
+    acelerador TEXT,
+    cable_sensor_acelerador TEXT,
+    maneta_embrague TEXT,
+    maneta_freno TEXT,
+    pedal_cambio TEXT,
+    pedal_freno TEXT,
+    estriberas TEXT,
+    soporte_estriberas TEXT,
+    caballete_lateral TEXT,
+    caballete_central TEXT,
+
+    -- ========================================================
+    -- 9. SISTEMA ELECTRICO
+    -- ========================================================
+
+    bateria TEXT,
+    alternador_estator TEXT,
+    rotor_volante_magnetico TEXT,
+    regulador_rectificador TEXT,
+    motor_arranque TEXT,
+    rele_arranque TEXT,
+    solenoide TEXT,
+    ecu_cdi TEXT,
+    bobina_encendido TEXT,
+    bujia TEXT,
+    cableado TEXT,
+    fusibles TEXT,
+    reles TEXT,
+    interruptor_encendido TEXT,
+    interruptor_luces TEXT,
+    interruptor_intermitentes TEXT,
+    claxon TEXT,
+    sensores TEXT,
+
+    -- ========================================================
+    -- 10. ILUMINACION Y SEÑALIZACION
+    -- ========================================================
+
+    faro_delantero TEXT,
+    luz_posicion TEXT,
+    luz_trasera TEXT,
+    luz_freno TEXT,
+    intermitentes TEXT,
+    bombillas_modulos_led TEXT,
+    luz_matricula TEXT,
+
+    -- ========================================================
+    -- 11. CARROCERIA
+    -- ========================================================
+
+    deposito_tanque TEXT,
+    asiento TEXT,
+    guardabarros_delantero TEXT,
+    guardabarros_trasero TEXT,
+    carenados TEXT,
+    paneles_laterales TEXT,
+    colin TEXT,
+    cupula_parabrisas TEXT,
+    parrilla_portaequipaje TEXT,
+    soporte_matricula TEXT,
+
+    -- ========================================================
+    -- 12. INSTRUMENTACION
+    -- ========================================================
+
+    velocimetro TEXT,
+    tacometro TEXT,
+    odometro TEXT,
+    indicador_combustible TEXT,
+    indicador_temperatura TEXT,
+    pantalla_panel_instrumentos TEXT,
+    testigo_aceite TEXT,
+    testigo_motor TEXT,
+    testigo_direccionales TEXT,
+    testigo_luces_altas TEXT,
+    testigo_neutro TEXT,
+
+    -- ========================================================
+    -- 13. TORNILLERIA Y PIEZAS PEQUEÑAS
+    -- ========================================================
+
+    tornillos TEXT,
+    tuercas TEXT,
+    arandelas TEXT,
+    pasadores TEXT,
+    clips TEXT,
+    seguros TEXT,
+    abrazaderas TEXT,
+    retenes TEXT,
+    juntas TEXT,
+    o_rings TEXT,
+    rodamientos TEXT,
+    bujes TEXT,
+    resortes TEXT,
+    cables TEXT,
+    mangueras TEXT,
+
+    -- ========================================================
+    -- RELACION CLIENTE -> MOTO
+    -- ========================================================
+
+    FOREIGN KEY (id_cliente)
+        REFERENCES clientes(id_cliente)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE
+);
+
+
+-- ============================================================
+-- 3. RECOMENDADO
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS recomendado (
+    id_recomendado INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    marca TEXT NOT NULL,
+    modelo TEXT NOT NULL,
+    anio INTEGER,
+    cilindraje TEXT,
+    tipo_motor TEXT,
+    refrigeracion TEXT,
+    sistema_combustible TEXT,
+
+    -- ========================================================
+    -- 1. MOTOR
+    -- ========================================================
+
+    bloque_carter_motor TEXT,
+    posible_adaptacion_bloque_carter_motor TEXT,
+
+    cilindro TEXT,
+    posible_adaptacion_cilindro TEXT,
+
+    culata TEXT,
+    posible_adaptacion_culata TEXT,
+
+    piston TEXT,
+    posible_adaptacion_piston TEXT,
+
+    aros_piston TEXT,
+    posible_adaptacion_aros_piston TEXT,
+
+    bulon_piston TEXT,
+    posible_adaptacion_bulon_piston TEXT,
+
+    biela TEXT,
+    posible_adaptacion_biela TEXT,
+
+    ciguenal TEXT,
+    posible_adaptacion_ciguenal TEXT,
+
+    arbol_levas TEXT,
+    posible_adaptacion_arbol_levas TEXT,
+
+    valvulas_admision_escape TEXT,
+    posible_adaptacion_valvulas_admision_escape TEXT,
+
+    resortes_valvula TEXT,
+    posible_adaptacion_resortes_valvula TEXT,
+
+    balancines TEXT,
+    posible_adaptacion_balancines TEXT,
+
+    cadena_distribucion TEXT,
+    posible_adaptacion_cadena_distribucion TEXT,
+
+    tensor_distribucion TEXT,
+    posible_adaptacion_tensor_distribucion TEXT,
+
+    engranajes_distribucion TEXT,
+    posible_adaptacion_engranajes_distribucion TEXT,
+
+    bomba_aceite TEXT,
+    posible_adaptacion_bomba_aceite TEXT,
+
+    filtro_aceite TEXT,
+    posible_adaptacion_filtro_aceite TEXT,
+
+    tapon_drenaje TEXT,
+    posible_adaptacion_tapon_drenaje TEXT,
+
+    carter_aceite TEXT,
+    posible_adaptacion_carter_aceite TEXT,
+
+    -- ========================================================
+    -- 2. TRANSMISION
+    -- ========================================================
+
+    embrague TEXT,
+    posible_adaptacion_embrague TEXT,
+
+    discos_embrague TEXT,
+    posible_adaptacion_discos_embrague TEXT,
+
+    separadores_embrague TEXT,
+    posible_adaptacion_separadores_embrague TEXT,
+
+    canasta_campana_embrague TEXT,
+    posible_adaptacion_canasta_campana_embrague TEXT,
+
+    plato_presion TEXT,
+    posible_adaptacion_plato_presion TEXT,
+
+    resortes_embrague TEXT,
+    posible_adaptacion_resortes_embrague TEXT,
+
+    caja_cambios TEXT,
+    posible_adaptacion_caja_cambios TEXT,
+
+    ejes_transmision TEXT,
+    posible_adaptacion_ejes_transmision TEXT,
+
+    engranajes TEXT,
+    posible_adaptacion_engranajes TEXT,
+
+    selector_cambios TEXT,
+    posible_adaptacion_selector_cambios TEXT,
+
+    horquillas_selectoras TEXT,
+    posible_adaptacion_horquillas_selectoras TEXT,
+
+    pinon_salida TEXT,
+    posible_adaptacion_pinon_salida TEXT,
+
+    cadena TEXT,
+    posible_adaptacion_cadena TEXT,
+
+    corona_trasera TEXT,
+    posible_adaptacion_corona_trasera TEXT,
+
+    tensor_ajustadores_cadena TEXT,
+    posible_adaptacion_tensor_ajustadores_cadena TEXT,
+
+    -- ========================================================
+    -- 3. COMBUSTIBLE
+    -- ========================================================
+
+    tanque_combustible TEXT,
+    posible_adaptacion_tanque_combustible TEXT,
+
+    tapa_tanque TEXT,
+    posible_adaptacion_tapa_tanque TEXT,
+
+    llave_combustible TEXT,
+    posible_adaptacion_llave_combustible TEXT,
+
+    bomba_gasolina TEXT,
+    posible_adaptacion_bomba_gasolina TEXT,
+
+    filtro_combustible TEXT,
+    posible_adaptacion_filtro_combustible TEXT,
+
+    carburador_inyector TEXT,
+    posible_adaptacion_carburador_inyector TEXT,
+
+    cuerpo_aceleracion TEXT,
+    posible_adaptacion_cuerpo_aceleracion TEXT,
+
+    mangueras_combustible TEXT,
+    posible_adaptacion_mangueras_combustible TEXT,
+
+    regulador_presion TEXT,
+    posible_adaptacion_regulador_presion TEXT,
+
+    inyectores TEXT,
+    posible_adaptacion_inyectores TEXT,
+
+    flotador_sensor_nivel TEXT,
+    posible_adaptacion_flotador_sensor_nivel TEXT,
+
+    -- ========================================================
+    -- 4. ADMISION Y ESCAPE
+    -- ========================================================
+
+    filtro_aire TEXT,
+    posible_adaptacion_filtro_aire TEXT,
+
+    caja_filtro_aire TEXT,
+    posible_adaptacion_caja_filtro_aire TEXT,
+
+    conductos_admision TEXT,
+    posible_adaptacion_conductos_admision TEXT,
+
+    multiple_admision TEXT,
+    posible_adaptacion_multiple_admision TEXT,
+
+    escape TEXT,
+    posible_adaptacion_escape TEXT,
+
+    multiple_escape TEXT,
+    posible_adaptacion_multiple_escape TEXT,
+
+    silenciador TEXT,
+    posible_adaptacion_silenciador TEXT,
+
+    catalizador TEXT,
+    posible_adaptacion_catalizador TEXT,
+
+    sensor_oxigeno TEXT,
+    posible_adaptacion_sensor_oxigeno TEXT,
+
+    -- ========================================================
+    -- 5. REFRIGERACION
+    -- ========================================================
+
+    radiador TEXT,
+    posible_adaptacion_radiador TEXT,
+
+    ventilador TEXT,
+    posible_adaptacion_ventilador TEXT,
+
+    bomba_agua TEXT,
+    posible_adaptacion_bomba_agua TEXT,
+
+    mangueras_refrigeracion TEXT,
+    posible_adaptacion_mangueras_refrigeracion TEXT,
+
+    termostato TEXT,
+    posible_adaptacion_termostato TEXT,
+
+    deposito_refrigerante TEXT,
+    posible_adaptacion_deposito_refrigerante TEXT,
+
+    sensor_temperatura TEXT,
+    posible_adaptacion_sensor_temperatura TEXT,
+
+    aletas_refrigeracion TEXT,
+    posible_adaptacion_aletas_refrigeracion TEXT,
+
+    conductos_deflectores_aire TEXT,
+    posible_adaptacion_conductos_deflectores_aire TEXT,
+
+    -- ========================================================
+    -- 6. RUEDAS Y FRENOS
+    -- ========================================================
+
+    rin_delantero TEXT,
+    posible_adaptacion_rin_delantero TEXT,
+
+    neumatico_delantero TEXT,
+    posible_adaptacion_neumatico_delantero TEXT,
+
+    camara_delantera TEXT,
+    posible_adaptacion_camara_delantera TEXT,
+
+    eje_delantero TEXT,
+    posible_adaptacion_eje_delantero TEXT,
+
+    rodamientos_delanteros TEXT,
+    posible_adaptacion_rodamientos_delanteros TEXT,
+
+    disco_freno_delantero TEXT,
+    posible_adaptacion_disco_freno_delantero TEXT,
+
+    rin_trasero TEXT,
+    posible_adaptacion_rin_trasero TEXT,
+
+    neumatico_trasero TEXT,
+    posible_adaptacion_neumatico_trasero TEXT,
+
+    camara_trasera TEXT,
+    posible_adaptacion_camara_trasera TEXT,
+
+    eje_trasero TEXT,
+    posible_adaptacion_eje_trasero TEXT,
+
+    rodamientos_traseros TEXT,
+    posible_adaptacion_rodamientos_traseros TEXT,
+
+    corona TEXT,
+    posible_adaptacion_corona TEXT,
+
+    disco_freno_trasero TEXT,
+    posible_adaptacion_disco_freno_trasero TEXT,
+
+    tambor_freno_trasero TEXT,
+    posible_adaptacion_tambor_freno_trasero TEXT,
+
+    maneta_freno TEXT,
+    posible_adaptacion_maneta_freno TEXT,
+
+    bomba_freno TEXT,
+    posible_adaptacion_bomba_freno TEXT,
+
+    deposito_liquido_freno TEXT,
+    posible_adaptacion_deposito_liquido_freno TEXT,
+
+    latiguillo_manguera_freno TEXT,
+    posible_adaptacion_latiguillo_manguera_freno TEXT,
+
+    pinza_freno TEXT,
+    posible_adaptacion_pinza_freno TEXT,
+
+    pastillas_freno TEXT,
+    posible_adaptacion_pastillas_freno TEXT,
+
+    disco_freno TEXT,
+    posible_adaptacion_disco_freno TEXT,
+
+    tambor TEXT,
+    posible_adaptacion_tambor TEXT,
+
+    zapatas TEXT,
+    posible_adaptacion_zapatas TEXT,
+
+    -- ========================================================
+    -- 7. CHASIS Y SUSPENSION
+    -- ========================================================
+
+    chasis_bastidor TEXT,
+    posible_adaptacion_chasis_bastidor TEXT,
+
+    subchasis TEXT,
+    posible_adaptacion_subchasis TEXT,
+
+    basculante TEXT,
+    posible_adaptacion_basculante TEXT,
+
+    amortiguador_trasero TEXT,
+    posible_adaptacion_amortiguador_trasero TEXT,
+
+    horquilla_delantera TEXT,
+    posible_adaptacion_horquilla_delantera TEXT,
+
+    barras_horquilla TEXT,
+    posible_adaptacion_barras_horquilla TEXT,
+
+    botellas_horquilla TEXT,
+    posible_adaptacion_botellas_horquilla TEXT,
+
+    resortes_horquilla TEXT,
+    posible_adaptacion_resortes_horquilla TEXT,
+
+    tijas_superior_inferior TEXT,
+    posible_adaptacion_tijas_superior_inferior TEXT,
+
+    rodamientos_direccion TEXT,
+    posible_adaptacion_rodamientos_direccion TEXT,
+
+    eje_direccion TEXT,
+    posible_adaptacion_eje_direccion TEXT,
+
+    -- ========================================================
+    -- 8. DIRECCION Y CONTROLES
+    -- ========================================================
+
+    manillar TEXT,
+    posible_adaptacion_manillar TEXT,
+
+    punos TEXT,
+    posible_adaptacion_punos TEXT,
+
+    acelerador TEXT,
+    posible_adaptacion_acelerador TEXT,
+
+    cable_sensor_acelerador TEXT,
+    posible_adaptacion_cable_sensor_acelerador TEXT,
+
+    maneta_embrague TEXT,
+    posible_adaptacion_maneta_embrague TEXT,
+
+    maneta_freno TEXT,
+    posible_adaptacion_maneta_freno TEXT,
+
+    pedal_cambio TEXT,
+    posible_adaptacion_pedal_cambio TEXT,
+
+    pedal_freno TEXT,
+    posible_adaptacion_pedal_freno TEXT,
+
+    estriberas TEXT,
+    posible_adaptacion_estriberas TEXT,
+
+    soporte_estriberas TEXT,
+    posible_adaptacion_soporte_estriberas TEXT,
+
+    caballete_lateral TEXT,
+    posible_adaptacion_caballete_lateral TEXT,
+
+    caballete_central TEXT,
+    posible_adaptacion_caballete_central TEXT,
+
+    -- ========================================================
+    -- 9. SISTEMA ELECTRICO
+    -- ========================================================
+
+    bateria TEXT,
+    posible_adaptacion_bateria TEXT,
+
+    alternador_estator TEXT,
+    posible_adaptacion_alternador_estator TEXT,
+
+    rotor_volante_magnetico TEXT,
+    posible_adaptacion_rotor_volante_magnetico TEXT,
+
+    regulador_rectificador TEXT,
+    posible_adaptacion_regulador_rectificador TEXT,
+
+    motor_arranque TEXT,
+    posible_adaptacion_motor_arranque TEXT,
+
+    rele_arranque TEXT,
+    posible_adaptacion_rele_arranque TEXT,
+
+    solenoide TEXT,
+    posible_adaptacion_solenoide TEXT,
+
+    ecu_cdi TEXT,
+    posible_adaptacion_ecu_cdi TEXT,
+
+    bobina_encendido TEXT,
+    posible_adaptacion_bobina_encendido TEXT,
+
+    bujia TEXT,
+    posible_adaptacion_bujia TEXT,
+
+    cableado TEXT,
+    posible_adaptacion_cableado TEXT,
+
+    fusibles TEXT,
+    posible_adaptacion_fusibles TEXT,
+
+    reles TEXT,
+    posible_adaptacion_reles TEXT,
+
+    interruptor_encendido TEXT,
+    posible_adaptacion_interruptor_encendido TEXT,
+
+    interruptor_luces TEXT,
+    posible_adaptacion_interruptor_luces TEXT,
+
+    interruptor_intermitentes TEXT,
+    posible_adaptacion_interruptor_intermitentes TEXT,
+
+    claxon TEXT,
+    posible_adaptacion_claxon TEXT,
+
+    sensores TEXT,
+    posible_adaptacion_sensores TEXT,
+
+    -- ========================================================
+    -- 10. ILUMINACION Y SEÑALIZACION
+    -- ========================================================
+
+    faro_delantero TEXT,
+    posible_adaptacion_faro_delantero TEXT,
+
+    luz_posicion TEXT,
+    posible_adaptacion_luz_posicion TEXT,
+
+    luz_trasera TEXT,
+    posible_adaptacion_luz_trasera TEXT,
+
+    luz_freno TEXT,
+    posible_adaptacion_luz_freno TEXT,
+
+    intermitentes TEXT,
+    posible_adaptacion_intermitentes TEXT,
+
+    bombillas_modulos_led TEXT,
+    posible_adaptacion_bombillas_modulos_led TEXT,
+
+    luz_matricula TEXT,
+    posible_adaptacion_luz_matricula TEXT,
+
+    -- ========================================================
+    -- 11. CARROCERIA
+    -- ========================================================
+
+    deposito_tanque TEXT,
+    posible_adaptacion_deposito_tanque TEXT,
+
+    asiento TEXT,
+    posible_adaptacion_asiento TEXT,
+
+    guardabarros_delantero TEXT,
+    posible_adaptacion_guardabarros_delantero TEXT,
+
+    guardabarros_trasero TEXT,
+    posible_adaptacion_guardabarros_trasero TEXT,
+
+    carenados TEXT,
+    posible_adaptacion_carenados TEXT,
+
+    paneles_laterales TEXT,
+    posible_adaptacion_paneles_laterales TEXT,
+
+    colin TEXT,
+    posible_adaptacion_colin TEXT,
+
+    cupula_parabrisas TEXT,
+    posible_adaptacion_cupula_parabrisas TEXT,
+
+    parrilla_portaequipaje TEXT,
+    posible_adaptacion_parrilla_portaequipaje TEXT,
+
+    soporte_matricula TEXT,
+    posible_adaptacion_soporte_matricula TEXT,
+
+    -- ========================================================
+    -- 12. INSTRUMENTACION
+    -- ========================================================
+
+    velocimetro TEXT,
+    posible_adaptacion_velocimetro TEXT,
+
+    tacometro TEXT,
+    posible_adaptacion_tacometro TEXT,
+
+    odometro TEXT,
+    posible_adaptacion_odometro TEXT,
+
+    indicador_combustible TEXT,
+    posible_adaptacion_indicador_combustible TEXT,
+
+    indicador_temperatura TEXT,
+    posible_adaptacion_indicador_temperatura TEXT,
+
+    pantalla_panel_instrumentos TEXT,
+    posible_adaptacion_pantalla_panel_instrumentos TEXT,
+
+    testigo_aceite TEXT,
+    posible_adaptacion_testigo_aceite TEXT,
+
+    testigo_motor TEXT,
+    posible_adaptacion_testigo_motor TEXT,
+
+    testigo_direccionales TEXT,
+    posible_adaptacion_testigo_direccionales TEXT,
+
+    testigo_luces_altas TEXT,
+    posible_adaptacion_testigo_luces_altas TEXT,
+
+    testigo_neutro TEXT,
+    posible_adaptacion_testigo_neutro TEXT,
+
+    -- ========================================================
+    -- 13. TORNILLERIA Y PIEZAS PEQUEÑAS
+    -- ========================================================
+
+    tornillos TEXT,
+    posible_adaptacion_tornillos TEXT,
+
+    tuercas TEXT,
+    posible_adaptacion_tuercas TEXT,
+
+    arandelas TEXT,
+    posible_adaptacion_arandelas TEXT,
+
+    pasadores TEXT,
+    posible_adaptacion_pasadores TEXT,
+
+    clips TEXT,
+    posible_adaptacion_clips TEXT,
+
+    seguros TEXT,
+    posible_adaptacion_seguros TEXT,
+
+    abrazaderas TEXT,
+    posible_adaptacion_abrazaderas TEXT,
+
+    retenes TEXT,
+    posible_adaptacion_retenes TEXT,
+
+    juntas TEXT,
+    posible_adaptacion_juntas TEXT,
+
+    o_rings TEXT,
+    posible_adaptacion_o_rings TEXT,
+
+    rodamientos TEXT,
+    posible_adaptacion_rodamientos TEXT,
+
+    bujes TEXT,
+    posible_adaptacion_bujes TEXT,
+
+    resortes TEXT,
+    posible_adaptacion_resortes TEXT,
+
+    cables TEXT,
+    posible_adaptacion_cables TEXT,
+
+    mangueras TEXT,
+    posible_adaptacion_mangueras TEXT
+);
