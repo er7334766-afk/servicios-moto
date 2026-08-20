@@ -49,7 +49,7 @@ export default function Sidebar({ current, navigate }: Props) {
             textTransform: "uppercase",
           }}
         >
-          MotoPartes
+          Clientes I.R
         </div>
         <div style={{ fontSize: 11, color: "#8b909e", marginTop: 2 }}>
           Sistema de gestión

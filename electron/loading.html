@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MotoPartes</title>
+    <title>Clientes I.R</title>
     <style>
       :root {
         color-scheme: dark;
@@ -21,6 +21,13 @@
       }
 
       main { text-align: center; padding: 32px; }
+      .brand-logo {
+        display: none;
+        width: 150px;
+        height: 150px;
+        object-fit: contain;
+        margin: 0 auto 16px;
+      }
       .mark {
         width: 58px;
         height: 58px;
@@ -55,8 +62,9 @@
   </head>
   <body>
     <main>
+      <img class="brand-logo" src="./logo.png" alt="Clientes I.R" onload="this.style.display='block'; document.querySelector('.mark').style.display='none'" />
       <div class="mark" aria-hidden="true"></div>
-      <h1>MotoPartes</h1>
+      <h1>Clientes I.R</h1>
       <p>Conectando con el sistema...</p>
     </main>
   </body>
