@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu } = require("electron");
 const path = require("node:path");
 const { createDatabase, registerDatabaseHandlers } = require("./database.cjs");
 
@@ -47,6 +47,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   const result = createDatabase(app.getPath("userData"));
   database = result.database;
   registerDatabaseHandlers(ipcMain, database);
