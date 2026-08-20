@@ -12,7 +12,7 @@
     "format": "oxfmt",
     "desktop": "npm run build:desktop && electron .",
     "desktop:render": "npm run build && cross-env MOTOPARTES_RENDER_URL=https://servicios-moto.onrender.com electron .",
-    "dist": "npm run build && electron-builder"
+    "dist": "npm run build:desktop && electron-builder"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
