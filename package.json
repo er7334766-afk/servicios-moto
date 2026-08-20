@@ -1,5 +1,5 @@
 {
-  "name": "clientes-ir",
+  "name": "inversiones-rodrigues",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -35,8 +35,8 @@
     "vite": "^8.0.0"
   },
   "build": {
-    "appId": "com.clientesir.desktop",
-    "productName": "Clientes I.R",
+    "appId": "com.inversionesrodrigues.desktop",
+    "productName": "Inversiones Rodrigues",
     "directories": {
       "output": "release"
     },

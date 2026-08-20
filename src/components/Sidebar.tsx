@@ -49,10 +49,10 @@ export default function Sidebar({ current, navigate }: Props) {
             textTransform: "uppercase",
           }}
         >
-          Clientes I.R
+          Inversiones Rodrigues
         </div>
         <div style={{ fontSize: 11, color: "#8b909e", marginTop: 2 }}>
-          Sistema de gestión
+          Clientes y motocicletas
         </div>
       </div>
 
