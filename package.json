@@ -1,5 +1,5 @@
 {
-  "name": "inversiones-rodrigues",
+  "name": "inversiones-rodriguez",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -35,8 +35,8 @@
     "vite": "^8.0.0"
   },
   "build": {
-    "appId": "com.inversionesrodrigues.desktop",
-    "productName": "Inversiones Rodrigues",
+    "appId": "com.inversionesrodriguez.desktop",
+    "productName": "Inversiones Rodriguez",
     "directories": {
       "output": "release"
     },
