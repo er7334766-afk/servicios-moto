@@ -10,6 +10,7 @@ function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 700,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -19,20 +20,28 @@ function createWindow() {
   });
 
   const renderUrl = process.env.MOTOPARTES_RENDER_URL;
-  if (renderUrl) {
-    window.loadURL(renderUrl);
-  } else {
-    window.loadFile(path.join(__dirname, "..", "dist", "index.html"));
-  }
+  const loadingPage = path.join(__dirname, "loading.html");
+  const frontendPage = path.join(__dirname, "..", "dist", "index.html");
 
   window.webContents.on("did-finish-load", () => {
-    console.log(`Frontend cargado: ${renderUrl || "build local"}`);
+    if (window.webContents.getURL().includes("loading.html")) {
+      console.log("Pantalla de carga visible; esperando frontend...");
+    } else {
+      console.log(`Frontend cargado: ${renderUrl || "build local"}`);
+    }
   });
   window.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`Frontend no pudo cargar (${errorCode}): ${errorDescription} - ${validatedURL}`);
   });
   window.webContents.on("console-message", (_event, _level, message, line, source) => {
     console.log(`Frontend: ${message} (${source}:${line})`);
+  });
+
+  window.loadFile(loadingPage).then(() => {
+    if (renderUrl) {
+      return window.loadURL(renderUrl);
+    }
+    return window.loadFile(frontendPage);
   });
 }
 
