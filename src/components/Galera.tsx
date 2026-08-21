@@ -34,6 +34,10 @@ export default function Galera({ showToast }: Props) {
       showToast("Escribe el nombre del cliente", "error");
       return;
     }
+    if (galeraDB.findActiveByClient(clientName)) {
+      showToast("Ese cliente ya tiene una galera pendiente", "error");
+      return;
+    }
     const record = galeraDB.create({ nombre_cliente: clientName.trim() });
     setClientName("");
     setDrafts((current) => ({ ...current, [record.id_galera]: emptyDraft() }));

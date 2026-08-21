@@ -1468,6 +1468,11 @@ export const galeraDB = {
     localStorage.setItem("motoparts_galera", JSON.stringify([...all, record]));
     return record;
   },
+  findActiveByClient(name: string): Galera | undefined {
+    if (desktopApi) return desktopRequest<Galera | null>("findActiveGaleraByClient", { name }) ?? undefined;
+    const normalized = name.trim().toLowerCase();
+    return this.getAll().find((record) => record.nombre_cliente.trim().toLowerCase() === normalized);
+  },
   addItem(id: number, data: Omit<GaleraItem, "id_item" | "id_galera">): GaleraItem {
     if (desktopApi) return desktopRequest<GaleraItem>("addGaleraItem", { id, data });
     const all = this.getAll();

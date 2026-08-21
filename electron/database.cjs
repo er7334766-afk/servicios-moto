@@ -221,6 +221,12 @@ function getGaleraAll(database) {
   });
 }
 
+function findActiveGaleraByClient(database, name) {
+  return database.prepare(
+    "SELECT id_galera, nombre_cliente FROM galera WHERE lower(trim(nombre_cliente)) = lower(trim(?)) LIMIT 1"
+  ).get(name) || null;
+}
+
 function getPaidGaleraAll(database) {
   const records = database.prepare("SELECT id_galera_pagada, nombre_cliente, pagado_en FROM galera_pagadas ORDER BY id_galera_pagada DESC").all();
   const items = database.prepare("SELECT id_item, id_galera_pagada, repuesto, precio_lps FROM galera_pagadas_items ORDER BY id_item").all();
@@ -249,6 +255,8 @@ function createRecord(database, entity, data) {
   }
 
   if (entity === "galera") {
+    const existing = findActiveGaleraByClient(database, data.nombre_cliente);
+    if (existing) throw new Error(`Ya existe una galera pendiente para ${existing.nombre_cliente}`);
     const result = database.prepare(
       "INSERT INTO galera (nombre_cliente, repuestos, total_lps, trabajo_terminado) VALUES (?, '', 0, 0)"
     ).run(data.nombre_cliente);
@@ -348,6 +356,7 @@ function handleRequest(database, request) {
     return getAll(database, "motos").find((moto) => moto.id_cliente === payload.id) || null;
   }
   if (operation === "getPaidGalera") return getPaidGaleraAll(database);
+  if (operation === "findActiveGaleraByClient") return findActiveGaleraByClient(database, payload.name);
   if (operation === "create") return createRecord(database, payload.entity, payload.data);
   if (operation === "update") return updateRecord(database, payload.entity, payload.id, payload.data);
   if (operation === "delete") return deleteRecord(database, payload.entity, payload.id);
