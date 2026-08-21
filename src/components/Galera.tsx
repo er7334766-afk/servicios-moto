@@ -6,12 +6,17 @@ interface Props {
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
-const emptyItem = { repuesto: "", precio_lps: "" };
+interface ItemDraft {
+  repuesto: string;
+  precio_lps: string;
+}
+
+const emptyDraft = (): ItemDraft => ({ repuesto: "", precio_lps: "" });
 
 export default function Galera({ showToast }: Props) {
   const [records, setRecords] = useState(() => galeraDB.getAll());
   const [clientName, setClientName] = useState("");
-  const [item, setItem] = useState(emptyItem);
+  const [drafts, setDrafts] = useState<Record<number, ItemDraft>>({});
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
   function refresh() {
@@ -26,30 +31,42 @@ export default function Galera({ showToast }: Props) {
     }
     const record = galeraDB.create({ nombre_cliente: clientName.trim() });
     setClientName("");
-    addItem(record.id_galera);
+    setDrafts((current) => ({ ...current, [record.id_galera]: emptyDraft() }));
+    refresh();
+    showToast("Galera creada; agrega los repuestos");
   }
 
-  function addItem(id: number) {
-    const price = Number(item.precio_lps);
-    if (!item.repuesto.trim() || !Number.isFinite(price) || price < 0) {
+  function updateDraft(id: number, field: keyof ItemDraft, value: string) {
+    setDrafts((current) => ({
+      ...current,
+      [id]: { ...(current[id] ?? emptyDraft()), [field]: value },
+    }));
+  }
+
+  function addItem(id: number, event: React.FormEvent) {
+    event.preventDefault();
+    const draft = drafts[id] ?? emptyDraft();
+    const price = Number(draft.precio_lps);
+    if (!draft.repuesto.trim() || !Number.isFinite(price) || price < 0) {
       showToast("Escribe el repuesto y un precio válido", "error");
       return;
     }
-    galeraDB.addItem(id, { repuesto: item.repuesto.trim(), precio_lps: price });
-    setItem(emptyItem);
+    galeraDB.addItem(id, { repuesto: draft.repuesto.trim(), precio_lps: price });
+    setDrafts((current) => ({ ...current, [id]: emptyDraft() }));
     refresh();
     showToast("Repuesto agregado");
   }
 
-  function addToExisting(record: GaleraRecord, event: React.FormEvent) {
-    event.preventDefault();
-    addItem(record.id_galera);
-  }
-
   function markPaid(id: number) {
     galeraDB.delete(id);
-    showToast("Galera pagada y eliminada");
+    setConfirmId(null);
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     refresh();
+    showToast("Galera pagada y eliminada");
   }
 
   function deleteItem(id: number) {
@@ -90,24 +107,22 @@ export default function Galera({ showToast }: Props) {
           title="Marcar como pagado"
           message="Al marcar esta galera como pagada se eliminará de la lista. ¿Continuar?"
           confirmLabel="Pagado"
-          onConfirm={() => { markPaid(confirmId); setConfirmId(null); }}
+          onConfirm={() => markPaid(confirmId)}
           onCancel={() => setConfirmId(null)}
         />
       )}
 
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#e8eaf0", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Galera</h1>
-        <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>Repuestos retirados por clientes pendientes de pago.</p>
+        <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>Varias cuentas abiertas; cada cliente tiene sus propios repuestos y total.</p>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, marginBottom: 20 }}>
         <form onSubmit={createGalera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: "18px 20px" }}>
-          <div style={{ ...labelStyle, marginBottom: 14 }}>Nueva galera</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
-            <div><label style={labelStyle}>Nombre del cliente</label><input style={inputStyle} value={clientName} placeholder="Ej. Juan Pérez" onChange={(event) => setClientName(event.target.value)} /></div>
-            <div><label style={labelStyle}>Primer repuesto</label><input style={inputStyle} value={item.repuesto} placeholder="Ej. Kit de clutch" onChange={(event) => setItem((current) => ({ ...current, repuesto: event.target.value }))} /></div>
-            <div><label style={labelStyle}>Precio L</label><input style={{ ...inputStyle, width: 130 }} type="number" min="0" step="0.01" value={item.precio_lps} placeholder="0.00" onChange={(event) => setItem((current) => ({ ...current, precio_lps: event.target.value }))} /></div>
-            <button type="submit" style={{ padding: "9px 16px", border: "none", borderRadius: 6, background: "#f97316", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Crear galera</button>
+          <div style={{ ...labelStyle, marginBottom: 14 }}>Nueva galera para otro cliente</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "end" }}>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Nombre del cliente</label><input style={inputStyle} value={clientName} placeholder="Ej. Juan Pérez" onChange={(event) => setClientName(event.target.value)} /></div>
+            <button type="submit" style={{ padding: "9px 16px", border: "none", borderRadius: 6, background: "#f97316", color: "#fff", fontWeight: 600, cursor: "pointer" }}>+ Nueva galera</button>
           </div>
         </form>
         <div style={{ background: "#16191f", border: "1px solid #252830", borderLeft: "3px solid #f97316", borderRadius: 8, padding: "14px 16px" }}>
@@ -118,22 +133,26 @@ export default function Galera({ showToast }: Props) {
 
       {records.length === 0 ? (
         <div style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: 48, textAlign: "center", color: "#8b909e", fontSize: 13 }}>No hay galeras pendientes.</div>
-      ) : records.map((record) => (
-        <section key={record.id_galera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830" }}>
-            <div><div style={{ color: "#e8eaf0", fontWeight: 600, fontSize: 15 }}>{record.nombre_cliente}</div><div style={{ color: "#8b909e", fontSize: 11, marginTop: 3 }}>{record.items.length} repuesto{record.items.length !== 1 ? "s" : ""}</div></div>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}><strong style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(record.total_lps))}</strong><button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ padding: "8px 13px", border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", cursor: "pointer", fontWeight: 600 }}>Pagado</button></div>
-          </div>
-          <div style={{ padding: "4px 18px 14px" }}>
-            {record.items.map((entry) => <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}><span>{entry.repuesto}</span><span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(entry.precio_lps))}</span><button type="button" onClick={() => deleteItem(entry.id_item)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Quitar</button></span></div>)}
-            <form onSubmit={(event) => addToExisting(record, event)} style={{ display: "grid", gridTemplateColumns: "1fr 150px auto", gap: 10, marginTop: 12 }}>
-              <input style={inputStyle} value={item.repuesto} placeholder="Agregar otro repuesto" onChange={(event) => setItem((current) => ({ ...current, repuesto: event.target.value }))} />
-              <input style={inputStyle} type="number" min="0" step="0.01" value={item.precio_lps} placeholder="Precio en L" onChange={(event) => setItem((current) => ({ ...current, precio_lps: event.target.value }))} />
-              <button type="submit" style={{ padding: "9px 14px", border: "1px solid #363a46", borderRadius: 6, background: "transparent", color: "#e8eaf0", cursor: "pointer" }}>+ Agregar</button>
-            </form>
-          </div>
-        </section>
-      ))}
+      ) : records.map((record: GaleraRecord) => {
+        const draft = drafts[record.id_galera] ?? emptyDraft();
+        return (
+          <section key={record.id_galera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830" }}>
+              <div><div style={{ color: "#e8eaf0", fontWeight: 600, fontSize: 15 }}>{record.nombre_cliente}</div><div style={{ color: "#8b909e", fontSize: 11, marginTop: 3 }}>{record.items.length} repuesto{record.items.length !== 1 ? "s" : ""}</div></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}><strong style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(record.total_lps))}</strong><button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ padding: "8px 13px", border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", cursor: "pointer", fontWeight: 600 }}>Pagado</button></div>
+            </div>
+            <div style={{ padding: "4px 18px 14px" }}>
+              {record.items.length === 0 && <div style={{ padding: "12px 0", color: "#8b909e", fontSize: 12 }}>Aún no hay repuestos en esta galera.</div>}
+              {record.items.map((entry) => <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}><span>{entry.repuesto}</span><span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(entry.precio_lps))}</span><button type="button" onClick={() => deleteItem(entry.id_item)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Quitar</button></span></div>)}
+              <form onSubmit={(event) => addItem(record.id_galera, event)} style={{ display: "grid", gridTemplateColumns: "1fr 150px auto", gap: 10, marginTop: 12 }}>
+                <input style={inputStyle} value={draft.repuesto} placeholder="Agregar repuesto a este cliente" onChange={(event) => updateDraft(record.id_galera, "repuesto", event.target.value)} />
+                <input style={inputStyle} type="number" min="0" step="0.01" value={draft.precio_lps} placeholder="Precio en L" onChange={(event) => updateDraft(record.id_galera, "precio_lps", event.target.value)} />
+                <button type="submit" style={{ padding: "9px 14px", border: "1px solid #363a46", borderRadius: 6, background: "transparent", color: "#e8eaf0", cursor: "pointer" }}>+ Agregar</button>
+              </form>
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
