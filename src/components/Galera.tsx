@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { galeraDB, type Galera as GaleraRecord } from "../lib/db";
+import { galeraDB, type Galera as GaleraRecord, type GaleraPagada } from "../lib/db";
 import ConfirmDialog from "./ConfirmDialog";
 
 interface Props {
@@ -15,12 +15,15 @@ const emptyDraft = (): ItemDraft => ({ repuesto: "", precio_lps: "" });
 
 export default function Galera({ showToast }: Props) {
   const [records, setRecords] = useState(() => galeraDB.getAll());
+  const [paidRecords, setPaidRecords] = useState<GaleraPagada[]>([]);
+  const [showPaid, setShowPaid] = useState(false);
   const [clientName, setClientName] = useState("");
   const [drafts, setDrafts] = useState<Record<number, ItemDraft>>({});
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
   function refresh() {
     setRecords(galeraDB.getAll());
+    if (showPaid) setPaidRecords(galeraDB.getPaid());
   }
 
   function createGalera(event: React.FormEvent) {
@@ -58,7 +61,7 @@ export default function Galera({ showToast }: Props) {
   }
 
   function markPaid(id: number) {
-    galeraDB.delete(id);
+    galeraDB.markPaid(id);
     setConfirmId(null);
     setDrafts((current) => {
       const next = { ...current };
@@ -67,6 +70,12 @@ export default function Galera({ showToast }: Props) {
     });
     refresh();
     showToast("Galera pagada y eliminada");
+  }
+
+  function togglePaidHistory() {
+    const next = !showPaid;
+    setShowPaid(next);
+    if (next) setPaidRecords(galeraDB.getPaid());
   }
 
   function deleteItem(id: number) {
@@ -115,6 +124,9 @@ export default function Galera({ showToast }: Props) {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#e8eaf0", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Galera</h1>
         <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>Varias cuentas abiertas; cada cliente tiene sus propios repuestos y total.</p>
+        <button type="button" onClick={togglePaidHistory} style={{ marginTop: 12, padding: "8px 14px", border: "1px solid #363a46", borderRadius: 6, background: showPaid ? "#1c1f28" : "transparent", color: showPaid ? "#f97316" : "#8b909e", cursor: "pointer", fontSize: 12 }}>
+          {showPaid ? "Ocultar galeras pagadas" : "Ver galeras pagadas"}
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, marginBottom: 20 }}>
@@ -153,6 +165,24 @@ export default function Galera({ showToast }: Props) {
           </section>
         );
       })}
+
+      {showPaid && (
+        <section style={{ marginTop: 28, background: "#16191f", border: "1px solid #252830", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830", color: "#e8eaf0", fontWeight: 600 }}>Historial de galeras pagadas</div>
+          {paidRecords.length === 0 ? (
+            <div style={{ padding: 28, color: "#8b909e", fontSize: 13 }}>Todavía no hay galeras pagadas.</div>
+          ) : paidRecords.map((record) => (
+            <div key={record.id_galera_pagada} style={{ padding: "14px 18px", borderBottom: "1px solid #1e2128" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <strong style={{ color: "#e8eaf0", fontSize: 13 }}>{record.nombre_cliente}</strong>
+                <span style={{ color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{money(Number(record.total_lps))}</span>
+              </div>
+              <div style={{ color: "#8b909e", fontSize: 12 }}>{record.items.map((item) => `${item.repuesto} (${money(Number(item.precio_lps))})`).join(" · ")}</div>
+              <div style={{ color: "#4a4f5e", fontSize: 11, marginTop: 6 }}>Pagado: {record.pagado_en}</div>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 }

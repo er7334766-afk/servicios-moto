@@ -7,6 +7,11 @@ export interface Galera {
   items: GaleraItem[];
 }
 
+export interface GaleraPagada extends Galera {
+  id_galera_pagada: number;
+  pagado_en: string;
+}
+
 export interface GaleraItem {
   id_item: number;
   id_galera: number;
@@ -1494,5 +1499,23 @@ export const galeraDB = {
     const filtered = all.filter((record) => record.id_galera !== id);
     localStorage.setItem("motoparts_galera", JSON.stringify(filtered));
     return filtered.length !== all.length;
+  },
+  markPaid(id: number): boolean {
+    if (desktopApi) return desktopRequest<boolean>("markGaleraPaid", { id });
+    const all = this.getAll();
+    const record = all.find((item) => item.id_galera === id);
+    if (!record) return false;
+    const paid = JSON.parse(localStorage.getItem("motopartes_galera_pagadas") || "[]") as GaleraPagada[];
+    paid.unshift({ ...record, id_galera_pagada: Date.now(), pagado_en: new Date().toISOString() });
+    localStorage.setItem("motopartes_galera_pagadas", JSON.stringify(paid));
+    return this.delete(id);
+  },
+  getPaid(): GaleraPagada[] {
+    if (desktopApi) return desktopRequest<GaleraPagada[]>("getPaidGalera");
+    try {
+      return JSON.parse(localStorage.getItem("motopartes_galera_pagadas") || "[]") as GaleraPagada[];
+    } catch {
+      return [];
+    }
   },
 };

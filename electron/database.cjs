@@ -83,7 +83,7 @@ const recomendadoColumns = [
 
 function migrateSchema(database) {
   const version = database.prepare("SELECT version FROM schema_version LIMIT 1").get().version;
-  if (version >= 4) return;
+  if (version >= 5) return;
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS galera (
@@ -94,6 +94,26 @@ function migrateSchema(database) {
       trabajo_terminado INTEGER NOT NULL DEFAULT 0 CHECK (trabajo_terminado IN (0, 1))
     )
   `);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS galera_pagadas (
+      id_galera_pagada INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre_cliente TEXT NOT NULL,
+      pagado_en TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS galera_pagadas_items (
+      id_item INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_galera_pagada INTEGER NOT NULL,
+      repuesto TEXT NOT NULL,
+      precio_lps REAL NOT NULL CHECK (precio_lps >= 0),
+      FOREIGN KEY (id_galera_pagada) REFERENCES galera_pagadas(id_galera_pagada) ON DELETE CASCADE
+    );
+  `);
+
+  if (version >= 4) {
+    database.prepare("UPDATE schema_version SET version = 5").run();
+    return;
+  }
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS galera_items (
@@ -110,7 +130,7 @@ function migrateSchema(database) {
   for (const record of legacyGalera) insertLegacyItem.run(record.id_galera, record.repuestos, Number(record.total_lps) || 0);
 
   if (version >= 3) {
-    database.prepare("UPDATE schema_version SET version = 4").run();
+    database.prepare("UPDATE schema_version SET version = 5").run();
     return;
   }
 
@@ -152,7 +172,7 @@ function migrateSchema(database) {
     });
   }
 
-  database.prepare("UPDATE schema_version SET version = 4").run();
+  database.prepare("UPDATE schema_version SET version = 5").run();
 }
 
 function parseJson(value) {
@@ -193,6 +213,19 @@ function getGaleraAll(database) {
   const items = database.prepare("SELECT id_item, id_galera, repuesto, precio_lps FROM galera_items ORDER BY id_item").all();
   return records.map((record) => {
     const galeraItems = items.filter((item) => item.id_galera === record.id_galera);
+    return {
+      ...record,
+      items: galeraItems,
+      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps), 0),
+    };
+  });
+}
+
+function getPaidGaleraAll(database) {
+  const records = database.prepare("SELECT id_galera_pagada, nombre_cliente, pagado_en FROM galera_pagadas ORDER BY id_galera_pagada DESC").all();
+  const items = database.prepare("SELECT id_item, id_galera_pagada, repuesto, precio_lps FROM galera_pagadas_items ORDER BY id_item").all();
+  return records.map((record) => {
+    const galeraItems = items.filter((item) => item.id_galera_pagada === record.id_galera_pagada);
     return {
       ...record,
       items: galeraItems,
@@ -294,6 +327,19 @@ function deleteGaleraItem(database, id) {
   return database.prepare("DELETE FROM galera_items WHERE id_item = ?").run(id).changes > 0;
 }
 
+function markGaleraPaid(database, id) {
+  const record = getGaleraAll(database).find((item) => item.id_galera === id);
+  if (!record) return false;
+  const pay = database.transaction(() => {
+    const result = database.prepare("INSERT INTO galera_pagadas (nombre_cliente) VALUES (?)").run(record.nombre_cliente);
+    const insertItem = database.prepare("INSERT INTO galera_pagadas_items (id_galera_pagada, repuesto, precio_lps) VALUES (?, ?, ?)");
+    for (const item of record.items) insertItem.run(result.lastInsertRowid, item.repuesto, item.precio_lps);
+    database.prepare("DELETE FROM galera WHERE id_galera = ?").run(id);
+  });
+  pay();
+  return true;
+}
+
 function handleRequest(database, request) {
   const { operation, payload = {} } = request || {};
   if (operation === "getAll") return getAll(database, payload.entity);
@@ -301,11 +347,13 @@ function handleRequest(database, request) {
   if (operation === "getByClienteId") {
     return getAll(database, "motos").find((moto) => moto.id_cliente === payload.id) || null;
   }
+  if (operation === "getPaidGalera") return getPaidGaleraAll(database);
   if (operation === "create") return createRecord(database, payload.entity, payload.data);
   if (operation === "update") return updateRecord(database, payload.entity, payload.id, payload.data);
   if (operation === "delete") return deleteRecord(database, payload.entity, payload.id);
   if (operation === "addGaleraItem") return addGaleraItem(database, payload.id, payload.data);
   if (operation === "deleteGaleraItem") return deleteGaleraItem(database, payload.id);
+  if (operation === "markGaleraPaid") return markGaleraPaid(database, payload.id);
   if (operation === "search") {
     const marca = String(payload.marca || "").toLowerCase().trim();
     const modelo = String(payload.modelo || "").toLowerCase().trim();
