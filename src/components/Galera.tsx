@@ -17,6 +17,8 @@ export default function Galera({ showToast }: Props) {
   const [records, setRecords] = useState(() => galeraDB.getAll());
   const [paidRecords, setPaidRecords] = useState<GaleraPagada[]>([]);
   const [showPaid, setShowPaid] = useState(false);
+  const [search, setSearch] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [drafts, setDrafts] = useState<Record<number, ItemDraft>>({});
   const [confirmId, setConfirmId] = useState<number | null>(null);
@@ -85,6 +87,13 @@ export default function Galera({ showToast }: Props) {
   }
 
   const totalPending = records.reduce((sum, record) => sum + Number(record.total_lps), 0);
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredRecords = records.filter((record) =>
+    record.nombre_cliente.toLowerCase().includes(normalizedSearch)
+  );
+  const filteredPaidRecords = paidRecords.filter((record) =>
+    record.nombre_cliente.toLowerCase().includes(normalizedSearch)
+  );
   const inputStyle: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
@@ -124,6 +133,9 @@ export default function Galera({ showToast }: Props) {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#e8eaf0", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Galera</h1>
         <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>Varias cuentas abiertas; cada cliente tiene sus propios repuestos y total.</p>
+        <button type="button" onClick={() => { setSearchOpen((open) => !open); if (searchOpen) setSearch(""); }} style={{ marginTop: 12, padding: "8px 14px", border: "1px solid #363a46", borderRadius: 6, background: searchOpen ? "#1c1f28" : "transparent", color: searchOpen ? "#f97316" : "#8b909e", cursor: "pointer", fontSize: 12 }}>
+          {searchOpen ? "Cerrar búsqueda" : "Buscar cliente"}
+        </button>
         <button type="button" onClick={togglePaidHistory} style={{ marginTop: 12, padding: "8px 14px", border: "1px solid #363a46", borderRadius: 6, background: showPaid ? "#1c1f28" : "transparent", color: showPaid ? "#f97316" : "#8b909e", cursor: "pointer", fontSize: 12 }}>
           {showPaid ? "Ocultar galeras pagadas" : "Ver galeras pagadas"}
         </button>
@@ -143,9 +155,20 @@ export default function Galera({ showToast }: Props) {
         </div>
       </div>
 
-      {records.length === 0 ? (
+      {searchOpen && <div style={{ display: "flex", gap: 10, alignItems: "center", background: "#16191f", border: "1px solid #363a46", borderRadius: 8, padding: "0 12px", marginBottom: 20 }}>
+        <span style={{ color: "#8b909e", fontSize: 16 }}>🔍</span>
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Buscar galera por nombre del cliente..."
+          style={{ ...inputStyle, border: "none", background: "transparent", paddingLeft: 0 }}
+        />
+        {search && <button type="button" onClick={() => setSearch("")} style={{ border: "none", background: "transparent", color: "#8b909e", cursor: "pointer", fontSize: 18 }}>×</button>}
+      </div>}
+
+      {filteredRecords.length === 0 ? (
         <div style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: 48, textAlign: "center", color: "#8b909e", fontSize: 13 }}>No hay galeras pendientes.</div>
-      ) : records.map((record: GaleraRecord) => {
+      ) : filteredRecords.map((record: GaleraRecord) => {
         const draft = drafts[record.id_galera] ?? emptyDraft();
         return (
           <section key={record.id_galera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
@@ -169,9 +192,9 @@ export default function Galera({ showToast }: Props) {
       {showPaid && (
         <section style={{ marginTop: 28, background: "#16191f", border: "1px solid #252830", borderRadius: 10, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830", color: "#e8eaf0", fontWeight: 600 }}>Historial de galeras pagadas</div>
-          {paidRecords.length === 0 ? (
+          {filteredPaidRecords.length === 0 ? (
             <div style={{ padding: 28, color: "#8b909e", fontSize: 13 }}>Todavía no hay galeras pagadas.</div>
-          ) : paidRecords.map((record) => (
+          ) : filteredPaidRecords.map((record) => (
             <div key={record.id_galera_pagada} style={{ padding: "14px 18px", borderBottom: "1px solid #1e2128" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <strong style={{ color: "#e8eaf0", fontSize: 13 }}>{record.nombre_cliente}</strong>
