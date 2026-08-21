@@ -83,7 +83,7 @@ const recomendadoColumns = [
 
 function migrateSchema(database) {
   const version = database.prepare("SELECT version FROM schema_version LIMIT 1").get().version;
-  if (version >= 3) return;
+  if (version >= 4) return;
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS galera (
@@ -95,8 +95,27 @@ function migrateSchema(database) {
     )
   `);
 
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS galera_items (
+      id_item INTEGER PRIMARY KEY AUTOINCREMENT,
+      id_galera INTEGER NOT NULL,
+      repuesto TEXT NOT NULL,
+      precio_lps REAL NOT NULL CHECK (precio_lps >= 0),
+      FOREIGN KEY (id_galera) REFERENCES galera(id_galera) ON DELETE CASCADE
+    )
+  `);
+
+  const legacyGalera = database.prepare("SELECT id_galera, repuestos, total_lps FROM galera WHERE repuestos <> '' AND NOT EXISTS (SELECT 1 FROM galera_items WHERE galera_items.id_galera = galera.id_galera)").all();
+  const insertLegacyItem = database.prepare("INSERT INTO galera_items (id_galera, repuesto, precio_lps) VALUES (?, ?, ?)");
+  for (const record of legacyGalera) insertLegacyItem.run(record.id_galera, record.repuestos, Number(record.total_lps) || 0);
+
+  if (version >= 3) {
+    database.prepare("UPDATE schema_version SET version = 4").run();
+    return;
+  }
+
   if (version >= 2) {
-    database.prepare("UPDATE schema_version SET version = 3").run();
+    database.prepare("UPDATE schema_version SET version = 4").run();
     return;
   }
 
@@ -133,7 +152,7 @@ function migrateSchema(database) {
     });
   }
 
-  database.prepare("UPDATE schema_version SET version = 3").run();
+  database.prepare("UPDATE schema_version SET version = 4").run();
 }
 
 function parseJson(value) {
@@ -165,15 +184,29 @@ function getAll(database, entity) {
   if (entity === "clientes") return database.prepare("SELECT * FROM clientes ORDER BY id_cliente").all();
   if (entity === "motos") return database.prepare("SELECT * FROM motos ORDER BY id_moto").all().map((row) => hydrateRecord(row, "piezas_json"));
   if (entity === "recomendado") return database.prepare("SELECT * FROM recomendado ORDER BY id_recomendado").all().map((row) => hydrateRecord(row, "datos_json"));
-  if (entity === "galera") return database.prepare("SELECT * FROM galera ORDER BY trabajo_terminado ASC, id_galera DESC").all();
+  if (entity === "galera") return getGaleraAll(database);
   throw new Error(`Entidad no soportada: ${entity}`);
+}
+
+function getGaleraAll(database) {
+  const records = database.prepare("SELECT id_galera, nombre_cliente FROM galera ORDER BY id_galera DESC").all();
+  const items = database.prepare("SELECT id_item, id_galera, repuesto, precio_lps FROM galera_items ORDER BY id_item").all();
+  return records.map((record) => {
+    const galeraItems = items.filter((item) => item.id_galera === record.id_galera);
+    return {
+      ...record,
+      items: galeraItems,
+      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps), 0),
+    };
+  });
 }
 
 function getById(database, entity, id) {
   const idColumn = entity === "clientes" ? "id_cliente" : entity === "motos" ? "id_moto" : entity === "recomendado" ? "id_recomendado" : "id_galera";
   const rows = database.prepare(`SELECT * FROM ${entity} WHERE ${idColumn} = ?`).all(id);
   if (rows.length === 0) return null;
-  return entity === "clientes" || entity === "galera" ? rows[0] : hydrateRecord(rows[0], entity === "motos" ? "piezas_json" : "datos_json");
+  if (entity === "galera") return getGaleraAll(database).find((record) => record.id_galera === id) || null;
+  return entity === "clientes" ? rows[0] : hydrateRecord(rows[0], entity === "motos" ? "piezas_json" : "datos_json");
 }
 
 function createRecord(database, entity, data) {
@@ -184,8 +217,8 @@ function createRecord(database, entity, data) {
 
   if (entity === "galera") {
     const result = database.prepare(
-      "INSERT INTO galera (nombre_cliente, repuestos, total_lps, trabajo_terminado) VALUES (?, ?, ?, ?)"
-    ).run(data.nombre_cliente, data.repuestos, Number(data.total_lps) || 0, data.trabajo_terminado ? 1 : 0);
+      "INSERT INTO galera (nombre_cliente) VALUES (?)"
+    ).run(data.nombre_cliente);
     return getById(database, entity, result.lastInsertRowid);
   }
 
@@ -250,6 +283,17 @@ function deleteRecord(database, entity, id) {
   return result.changes > 0;
 }
 
+function addGaleraItem(database, id, data) {
+  const result = database.prepare(
+    "INSERT INTO galera_items (id_galera, repuesto, precio_lps) VALUES (?, ?, ?)"
+  ).run(id, data.repuesto, Number(data.precio_lps) || 0);
+  return database.prepare("SELECT id_item, id_galera, repuesto, precio_lps FROM galera_items WHERE id_item = ?").get(result.lastInsertRowid);
+}
+
+function deleteGaleraItem(database, id) {
+  return database.prepare("DELETE FROM galera_items WHERE id_item = ?").run(id).changes > 0;
+}
+
 function handleRequest(database, request) {
   const { operation, payload = {} } = request || {};
   if (operation === "getAll") return getAll(database, payload.entity);
@@ -260,6 +304,8 @@ function handleRequest(database, request) {
   if (operation === "create") return createRecord(database, payload.entity, payload.data);
   if (operation === "update") return updateRecord(database, payload.entity, payload.id, payload.data);
   if (operation === "delete") return deleteRecord(database, payload.entity, payload.id);
+  if (operation === "addGaleraItem") return addGaleraItem(database, payload.id, payload.data);
+  if (operation === "deleteGaleraItem") return deleteGaleraItem(database, payload.id);
   if (operation === "search") {
     const marca = String(payload.marca || "").toLowerCase().trim();
     const modelo = String(payload.modelo || "").toLowerCase().trim();

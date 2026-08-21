@@ -46,7 +46,15 @@ CREATE TABLE IF NOT EXISTS recomendado (
 CREATE TABLE IF NOT EXISTS galera (
     id_galera INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre_cliente TEXT NOT NULL,
-    repuestos TEXT NOT NULL,
+    repuestos TEXT NOT NULL DEFAULT '',
     total_lps REAL NOT NULL DEFAULT 0 CHECK (total_lps >= 0),
     trabajo_terminado INTEGER NOT NULL DEFAULT 0 CHECK (trabajo_terminado IN (0, 1))
+);
+
+CREATE TABLE IF NOT EXISTS galera_items (
+    id_item INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_galera INTEGER NOT NULL,
+    repuesto TEXT NOT NULL,
+    precio_lps REAL NOT NULL CHECK (precio_lps >= 0),
+    FOREIGN KEY (id_galera) REFERENCES galera(id_galera) ON DELETE CASCADE
 );

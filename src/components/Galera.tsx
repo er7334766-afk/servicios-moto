@@ -6,92 +6,66 @@ interface Props {
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
-const emptyForm = {
-  nombre_cliente: "",
-  repuestos: "",
-  total_lps: "",
-  trabajo_terminado: false,
-};
+const emptyItem = { repuesto: "", precio_lps: "" };
 
 export default function Galera({ showToast }: Props) {
   const [records, setRecords] = useState(() => galeraDB.getAll());
-  const [form, setForm] = useState(emptyForm);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [clientName, setClientName] = useState("");
+  const [item, setItem] = useState(emptyItem);
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
   function refresh() {
     setRecords(galeraDB.getAll());
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  function createGalera(event: React.FormEvent) {
     event.preventDefault();
-    const total = Number(form.total_lps);
-    if (!form.nombre_cliente.trim() || !form.repuestos.trim()) {
-      showToast("Nombre del cliente y repuestos son obligatorios", "error");
+    if (!clientName.trim()) {
+      showToast("Escribe el nombre del cliente", "error");
       return;
     }
-    if (!Number.isFinite(total) || total < 0) {
-      showToast("El total debe ser un monto válido en lempiras", "error");
+    const record = galeraDB.create({ nombre_cliente: clientName.trim() });
+    setClientName("");
+    addItem(record.id_galera);
+  }
+
+  function addItem(id: number) {
+    const price = Number(item.precio_lps);
+    if (!item.repuesto.trim() || !Number.isFinite(price) || price < 0) {
+      showToast("Escribe el repuesto y un precio válido", "error");
       return;
     }
+    galeraDB.addItem(id, { repuesto: item.repuesto.trim(), precio_lps: price });
+    setItem(emptyItem);
+    refresh();
+    showToast("Repuesto agregado");
+  }
 
-    const data = {
-      nombre_cliente: form.nombre_cliente.trim(),
-      repuestos: form.repuestos.trim(),
-      total_lps: total,
-      trabajo_terminado: form.trabajo_terminado ? 1 : 0,
-    };
+  function addToExisting(record: GaleraRecord, event: React.FormEvent) {
+    event.preventDefault();
+    addItem(record.id_galera);
+  }
 
-    if (editingId === null) {
-      galeraDB.create(data);
-      showToast("Galera registrada");
-    } else {
-      galeraDB.update(editingId, data);
-      showToast("Galera actualizada");
-    }
-
-    setForm(emptyForm);
-    setEditingId(null);
+  function markPaid(id: number) {
+    galeraDB.delete(id);
+    showToast("Galera pagada y eliminada");
     refresh();
   }
 
-  function startEdit(record: GaleraRecord) {
-    setEditingId(record.id_galera);
-    setForm({
-      nombre_cliente: record.nombre_cliente,
-      repuestos: record.repuestos,
-      total_lps: String(record.total_lps),
-      trabajo_terminado: Boolean(record.trabajo_terminado),
-    });
-  }
-
-  function toggleFinished(record: GaleraRecord) {
-    galeraDB.update(record.id_galera, {
-      trabajo_terminado: record.trabajo_terminado ? 0 : 1,
-    });
+  function deleteItem(id: number) {
+    galeraDB.deleteItem(id);
     refresh();
+    showToast("Repuesto eliminado");
   }
 
-  function handleDelete() {
-    if (confirmId === null) return;
-    galeraDB.delete(confirmId);
-    setConfirmId(null);
-    showToast("Galera eliminada");
-    refresh();
-  }
-
-  const totalPendiente = records
-    .filter((record) => !record.trabajo_terminado)
-    .reduce((sum, record) => sum + Number(record.total_lps), 0);
-  const totalGeneral = records.reduce((sum, record) => sum + Number(record.total_lps), 0);
-
+  const totalPending = records.reduce((sum, record) => sum + Number(record.total_lps), 0);
   const inputStyle: React.CSSProperties = {
     width: "100%",
     boxSizing: "border-box",
     background: "#0f1117",
     border: "1px solid #363a46",
     borderRadius: 6,
-    padding: "10px 12px",
+    padding: "9px 11px",
     color: "#e8eaf0",
     fontFamily: "'Inter', sans-serif",
     fontSize: 13,
@@ -110,102 +84,56 @@ export default function Galera({ showToast }: Props) {
   const money = (value: number) => `L ${value.toFixed(2)}`;
 
   return (
-    <div style={{ padding: "32px 36px", maxWidth: 1100 }}>
+    <div style={{ padding: "32px 36px", maxWidth: 1050 }}>
       {confirmId !== null && (
         <ConfirmDialog
-          title="Eliminar galera"
-          message="¿Eliminar este registro de galera? Esta acción no se puede deshacer."
-          onConfirm={handleDelete}
+          title="Marcar como pagado"
+          message="Al marcar esta galera como pagada se eliminará de la lista. ¿Continuar?"
+          confirmLabel="Pagado"
+          onConfirm={() => { markPaid(confirmId); setConfirmId(null); }}
           onCancel={() => setConfirmId(null)}
         />
       )}
 
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#e8eaf0", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
-          Galera
-        </h1>
-        <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>
-          Repuestos retirados que el cliente paga al terminar el trabajo.
-        </p>
+        <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 700, color: "#e8eaf0", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Galera</h1>
+        <p style={{ color: "#8b909e", fontSize: 13, margin: "4px 0 0" }}>Repuestos retirados por clientes pendientes de pago.</p>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 20 }}>
-        {[
-          ["Pendiente de cobro", money(totalPendiente), "#f97316"],
-          ["Total registrado", money(totalGeneral), "#3b82f6"],
-          ["Trabajos abiertos", String(records.filter((record) => !record.trabajo_terminado).length), "#eab308"],
-        ].map(([label, value, color]) => (
-          <div key={label} style={{ background: "#16191f", border: "1px solid #252830", borderLeft: `3px solid ${color}`, borderRadius: 8, padding: "14px 16px" }}>
-            <div style={{ color, fontFamily: "'JetBrains Mono', monospace", fontSize: 20 }}>{value}</div>
-            <div style={{ color: "#8b909e", fontSize: 11, marginTop: 4 }}>{label}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: 12, marginBottom: 20 }}>
+        <form onSubmit={createGalera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ ...labelStyle, marginBottom: 14 }}>Nueva galera</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, alignItems: "end" }}>
+            <div><label style={labelStyle}>Nombre del cliente</label><input style={inputStyle} value={clientName} placeholder="Ej. Juan Pérez" onChange={(event) => setClientName(event.target.value)} /></div>
+            <div><label style={labelStyle}>Primer repuesto</label><input style={inputStyle} value={item.repuesto} placeholder="Ej. Kit de clutch" onChange={(event) => setItem((current) => ({ ...current, repuesto: event.target.value }))} /></div>
+            <div><label style={labelStyle}>Precio L</label><input style={{ ...inputStyle, width: 130 }} type="number" min="0" step="0.01" value={item.precio_lps} placeholder="0.00" onChange={(event) => setItem((current) => ({ ...current, precio_lps: event.target.value }))} /></div>
+            <button type="submit" style={{ padding: "9px 16px", border: "none", borderRadius: 6, background: "#f97316", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Crear galera</button>
           </div>
-        ))}
+        </form>
+        <div style={{ background: "#16191f", border: "1px solid #252830", borderLeft: "3px solid #f97316", borderRadius: 8, padding: "14px 16px" }}>
+          <div style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace", fontSize: 21 }}>{money(totalPending)}</div>
+          <div style={{ color: "#8b909e", fontSize: 11, marginTop: 4 }}>Total pendiente de cobro</div>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: "20px 22px", marginBottom: 20 }}>
-        <div style={{ ...labelStyle, marginBottom: 14 }}>{editingId === null ? "Nueva galera" : "Editar galera"}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1.8fr 180px", gap: 14, alignItems: "end" }}>
-          <div>
-            <label style={labelStyle}>Nombre del cliente *</label>
-            <input style={inputStyle} value={form.nombre_cliente} placeholder="Ej. Juan Pérez" onChange={(event) => setForm((current) => ({ ...current, nombre_cliente: event.target.value }))} />
+      {records.length === 0 ? (
+        <div style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, padding: 48, textAlign: "center", color: "#8b909e", fontSize: 13 }}>No hay galeras pendientes.</div>
+      ) : records.map((record) => (
+        <section key={record.id_galera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830" }}>
+            <div><div style={{ color: "#e8eaf0", fontWeight: 600, fontSize: 15 }}>{record.nombre_cliente}</div><div style={{ color: "#8b909e", fontSize: 11, marginTop: 3 }}>{record.items.length} repuesto{record.items.length !== 1 ? "s" : ""}</div></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}><strong style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(record.total_lps))}</strong><button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ padding: "8px 13px", border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", cursor: "pointer", fontWeight: 600 }}>Pagado</button></div>
           </div>
-          <div>
-            <label style={labelStyle}>Repuestos que ha sacado *</label>
-            <textarea style={{ ...inputStyle, minHeight: 42, resize: "vertical" }} value={form.repuestos} placeholder="Ej. Kit de clutch, aceite, pastillas de freno" onChange={(event) => setForm((current) => ({ ...current, repuestos: event.target.value }))} />
+          <div style={{ padding: "4px 18px 14px" }}>
+            {record.items.map((entry) => <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}><span>{entry.repuesto}</span><span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(entry.precio_lps))}</span><button type="button" onClick={() => deleteItem(entry.id_item)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Quitar</button></span></div>)}
+            <form onSubmit={(event) => addToExisting(record, event)} style={{ display: "grid", gridTemplateColumns: "1fr 150px auto", gap: 10, marginTop: 12 }}>
+              <input style={inputStyle} value={item.repuesto} placeholder="Agregar otro repuesto" onChange={(event) => setItem((current) => ({ ...current, repuesto: event.target.value }))} />
+              <input style={inputStyle} type="number" min="0" step="0.01" value={item.precio_lps} placeholder="Precio en L" onChange={(event) => setItem((current) => ({ ...current, precio_lps: event.target.value }))} />
+              <button type="submit" style={{ padding: "9px 14px", border: "1px solid #363a46", borderRadius: 6, background: "transparent", color: "#e8eaf0", cursor: "pointer" }}>+ Agregar</button>
+            </form>
           </div>
-          <div>
-            <label style={labelStyle}>Total en lempiras *</label>
-            <input style={inputStyle} type="number" min="0" step="0.01" value={form.total_lps} placeholder="0.00" onChange={(event) => setForm((current) => ({ ...current, total_lps: event.target.value }))} />
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
-          <input id="galera-finished" type="checkbox" checked={form.trabajo_terminado} onChange={(event) => setForm((current) => ({ ...current, trabajo_terminado: event.target.checked }))} />
-          <label htmlFor="galera-finished" style={{ color: "#e8eaf0", fontSize: 13 }}>Trabajo terminado / listo para cobrar</label>
-        </div>
-        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-          <button type="submit" style={{ padding: "9px 18px", border: "none", borderRadius: 6, background: "#f97316", color: "#fff", fontWeight: 600, cursor: "pointer" }}>
-            {editingId === null ? "Agregar a galera" : "Guardar cambios"}
-          </button>
-          {editingId !== null && <button type="button" onClick={() => { setEditingId(null); setForm(emptyForm); }} style={{ padding: "9px 18px", border: "1px solid #363a46", borderRadius: 6, background: "transparent", color: "#8b909e", cursor: "pointer" }}>Cancelar</button>}
-        </div>
-      </form>
-
-      <div style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ background: "#1c1f28", borderBottom: "1px solid #252830" }}>
-              {[
-                "Cliente",
-                "Repuestos retirados",
-                "Total",
-                "Trabajo",
-                "Acciones",
-              ].map((heading) => <th key={heading} style={{ padding: "10px 16px", textAlign: heading === "Acciones" ? "right" : "left", color: "#8b909e", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>{heading}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {records.length === 0 ? (
-              <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "#8b909e", fontSize: 13 }}>No hay registros en galera</td></tr>
-            ) : records.map((record) => (
-              <tr key={record.id_galera} style={{ borderBottom: "1px solid #1e2128" }}>
-                <td style={{ padding: "12px 16px", color: "#e8eaf0", fontSize: 13, fontWeight: 600 }}>{record.nombre_cliente}</td>
-                <td style={{ padding: "12px 16px", color: "#8b909e", fontSize: 12, whiteSpace: "pre-wrap" }}>{record.repuestos}</td>
-                <td style={{ padding: "12px 16px", color: "#f97316", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{money(Number(record.total_lps))}</td>
-                <td style={{ padding: "12px 16px" }}>
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 7, color: record.trabajo_terminado ? "#22c55e" : "#eab308", fontSize: 12, cursor: "pointer" }}>
-                    <input type="checkbox" checked={Boolean(record.trabajo_terminado)} onChange={() => toggleFinished(record)} />
-                    {record.trabajo_terminado ? "Terminado" : "Pendiente"}
-                  </label>
-                </td>
-                <td style={{ padding: "12px 16px", textAlign: "right", whiteSpace: "nowrap" }}>
-                  <button type="button" onClick={() => startEdit(record)} style={{ marginRight: 8, border: "none", background: "transparent", color: "#3b82f6", cursor: "pointer", fontSize: 12 }}>Editar</button>
-                  <button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Eliminar</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        </section>
+      ))}
     </div>
   );
 }

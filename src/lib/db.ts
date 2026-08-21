@@ -3,9 +3,15 @@ import type { Cliente, Moto, Recomendado } from "./schema";
 export interface Galera {
   id_galera: number;
   nombre_cliente: string;
-  repuestos: string;
   total_lps: number;
-  trabajo_terminado: number;
+  items: GaleraItem[];
+}
+
+export interface GaleraItem {
+  id_item: number;
+  id_galera: number;
+  repuesto: string;
+  precio_lps: number;
 }
 
 const desktopApi =
@@ -1450,21 +1456,37 @@ export const galeraDB = {
       return [];
     }
   },
-  create(data: Omit<Galera, "id_galera">): Galera {
+  create(data: Pick<Galera, "nombre_cliente">): Galera {
     if (desktopApi) return desktopRequest<Galera>("create", { entity: "galera", data });
     const all = this.getAll();
-    const record = { id_galera: nextId(all as unknown as { [k: string]: unknown }[]), ...data };
+    const record = { id_galera: nextId(all as unknown as { [k: string]: unknown }[]), nombre_cliente: data.nombre_cliente, total_lps: 0, items: [] };
     localStorage.setItem("motoparts_galera", JSON.stringify([...all, record]));
     return record;
   },
-  update(id: number, data: Partial<Omit<Galera, "id_galera">>): Galera | null {
-    if (desktopApi) return desktopRequest<Galera | null>("update", { entity: "galera", id, data });
+  addItem(id: number, data: Omit<GaleraItem, "id_item" | "id_galera">): GaleraItem {
+    if (desktopApi) return desktopRequest<GaleraItem>("addGaleraItem", { id, data });
     const all = this.getAll();
-    const index = all.findIndex((record) => record.id_galera === id);
-    if (index === -1) return null;
-    all[index] = { ...all[index], ...data };
+    const record = all.find((item) => item.id_galera === id);
+    if (!record) throw new Error("Galera no encontrada");
+    const item = { id_item: Date.now(), id_galera: id, ...data };
+    record.items.push(item);
+    record.total_lps = record.items.reduce((sum, current) => sum + current.precio_lps, 0);
     localStorage.setItem("motoparts_galera", JSON.stringify(all));
-    return all[index];
+    return item;
+  },
+  deleteItem(id: number): boolean {
+    if (desktopApi) return desktopRequest<boolean>("deleteGaleraItem", { id });
+    const all = this.getAll();
+    for (const record of all) {
+      const before = record.items.length;
+      record.items = record.items.filter((item) => item.id_item !== id);
+      record.total_lps = record.items.reduce((sum, item) => sum + item.precio_lps, 0);
+      if (record.items.length !== before) {
+        localStorage.setItem("motopartes_galera", JSON.stringify(all));
+        return true;
+      }
+    }
+    return false;
   },
   delete(id: number): boolean {
     if (desktopApi) return desktopRequest<boolean>("delete", { entity: "galera", id });
