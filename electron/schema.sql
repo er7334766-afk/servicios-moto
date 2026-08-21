@@ -42,3 +42,11 @@ CREATE TABLE IF NOT EXISTS recomendado (
     sistema_combustible TEXT,
     datos_json TEXT NOT NULL DEFAULT '{}'
 );
+
+CREATE TABLE IF NOT EXISTS galera (
+    id_galera INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre_cliente TEXT NOT NULL,
+    repuestos TEXT NOT NULL,
+    total_lps REAL NOT NULL DEFAULT 0 CHECK (total_lps >= 0),
+    trabajo_terminado INTEGER NOT NULL DEFAULT 0 CHECK (trabajo_terminado IN (0, 1))
+);

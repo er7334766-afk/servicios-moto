@@ -1,5 +1,13 @@
 import type { Cliente, Moto, Recomendado } from "./schema";
 
+export interface Galera {
+  id_galera: number;
+  nombre_cliente: string;
+  repuestos: string;
+  total_lps: number;
+  trabajo_terminado: number;
+}
+
 const desktopApi =
   typeof window !== "undefined" ? window.motoPartsDesktop : undefined;
 
@@ -1430,5 +1438,39 @@ export const recomendadoDB = {
     if (filtered.length === all.length) return false;
     save("motoparts_recomendado", filtered);
     return true;
+  },
+};
+
+export const galeraDB = {
+  getAll(): Galera[] {
+    if (desktopApi) return desktopRequest<Galera[]>("getAll", { entity: "galera" });
+    try {
+      return JSON.parse(localStorage.getItem("motoparts_galera") || "[]") as Galera[];
+    } catch {
+      return [];
+    }
+  },
+  create(data: Omit<Galera, "id_galera">): Galera {
+    if (desktopApi) return desktopRequest<Galera>("create", { entity: "galera", data });
+    const all = this.getAll();
+    const record = { id_galera: nextId(all as unknown as { [k: string]: unknown }[]), ...data };
+    localStorage.setItem("motoparts_galera", JSON.stringify([...all, record]));
+    return record;
+  },
+  update(id: number, data: Partial<Omit<Galera, "id_galera">>): Galera | null {
+    if (desktopApi) return desktopRequest<Galera | null>("update", { entity: "galera", id, data });
+    const all = this.getAll();
+    const index = all.findIndex((record) => record.id_galera === id);
+    if (index === -1) return null;
+    all[index] = { ...all[index], ...data };
+    localStorage.setItem("motoparts_galera", JSON.stringify(all));
+    return all[index];
+  },
+  delete(id: number): boolean {
+    if (desktopApi) return desktopRequest<boolean>("delete", { entity: "galera", id });
+    const all = this.getAll();
+    const filtered = all.filter((record) => record.id_galera !== id);
+    localStorage.setItem("motoparts_galera", JSON.stringify(filtered));
+    return filtered.length !== all.length;
   },
 };

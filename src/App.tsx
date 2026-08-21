@@ -11,6 +11,7 @@ import RecomendadoSearch from "./components/RecomendadoSearch";
 import RecomendadoDetail from "./components/RecomendadoDetail";
 import RecomendadoForm from "./components/RecomendadoForm";
 import Toast from "./components/Toast";
+import Galera from "./components/Galera";
 
 export type View =
   | "dashboard"
@@ -25,7 +26,8 @@ export type View =
   | "recomendados"
   | "recomendado-new"
   | "recomendado-detail"
-  | "recomendado-edit";
+  | "recomendado-edit"
+  | "galera";
 
 interface NavState {
   view: View;
@@ -146,6 +148,9 @@ export default function App() {
             showToast={showToast}
           />
         );
+
+      case "galera":
+        return <Galera showToast={showToast} />;
 
       default:
         return <Dashboard navigate={navigate} />;

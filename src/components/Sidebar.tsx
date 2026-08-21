@@ -10,6 +10,7 @@ const navItems: { view: View; label: string; icon: string }[] = [
   { view: "clientes-list", label: "Clientes", icon: "👤" },
   { view: "motos-list", label: "Motocicletas", icon: "🏍" },
   { view: "recomendados", label: "Recomendados", icon: "⭐" },
+  { view: "galera", label: "Galera", icon: "💳" },
 ];
 
 export default function Sidebar({ current, navigate }: Props) {

@@ -83,7 +83,22 @@ const recomendadoColumns = [
 
 function migrateSchema(database) {
   const version = database.prepare("SELECT version FROM schema_version LIMIT 1").get().version;
-  if (version >= 2) return;
+  if (version >= 3) return;
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS galera (
+      id_galera INTEGER PRIMARY KEY AUTOINCREMENT,
+      nombre_cliente TEXT NOT NULL,
+      repuestos TEXT NOT NULL,
+      total_lps REAL NOT NULL DEFAULT 0 CHECK (total_lps >= 0),
+      trabajo_terminado INTEGER NOT NULL DEFAULT 0 CHECK (trabajo_terminado IN (0, 1))
+    )
+  `);
+
+  if (version >= 2) {
+    database.prepare("UPDATE schema_version SET version = 3").run();
+    return;
+  }
 
   const motoExisting = new Set(database.prepare("PRAGMA table_info(motos)").all().map((column) => column.name));
   const recomendadoExisting = new Set(database.prepare("PRAGMA table_info(recomendado)").all().map((column) => column.name));
@@ -118,7 +133,7 @@ function migrateSchema(database) {
     });
   }
 
-  database.prepare("UPDATE schema_version SET version = 2").run();
+  database.prepare("UPDATE schema_version SET version = 3").run();
 }
 
 function parseJson(value) {
@@ -150,19 +165,27 @@ function getAll(database, entity) {
   if (entity === "clientes") return database.prepare("SELECT * FROM clientes ORDER BY id_cliente").all();
   if (entity === "motos") return database.prepare("SELECT * FROM motos ORDER BY id_moto").all().map((row) => hydrateRecord(row, "piezas_json"));
   if (entity === "recomendado") return database.prepare("SELECT * FROM recomendado ORDER BY id_recomendado").all().map((row) => hydrateRecord(row, "datos_json"));
+  if (entity === "galera") return database.prepare("SELECT * FROM galera ORDER BY trabajo_terminado ASC, id_galera DESC").all();
   throw new Error(`Entidad no soportada: ${entity}`);
 }
 
 function getById(database, entity, id) {
-  const idColumn = entity === "clientes" ? "id_cliente" : entity === "motos" ? "id_moto" : "id_recomendado";
+  const idColumn = entity === "clientes" ? "id_cliente" : entity === "motos" ? "id_moto" : entity === "recomendado" ? "id_recomendado" : "id_galera";
   const rows = database.prepare(`SELECT * FROM ${entity} WHERE ${idColumn} = ?`).all(id);
   if (rows.length === 0) return null;
-  return entity === "clientes" ? rows[0] : hydrateRecord(rows[0], entity === "motos" ? "piezas_json" : "datos_json");
+  return entity === "clientes" || entity === "galera" ? rows[0] : hydrateRecord(rows[0], entity === "motos" ? "piezas_json" : "datos_json");
 }
 
 function createRecord(database, entity, data) {
   if (entity === "clientes") {
     const result = database.prepare("INSERT INTO clientes (nombre, telefono) VALUES (?, ?)").run(data.nombre, data.telefono || null);
+    return getById(database, entity, result.lastInsertRowid);
+  }
+
+  if (entity === "galera") {
+    const result = database.prepare(
+      "INSERT INTO galera (nombre_cliente, repuestos, total_lps, trabajo_terminado) VALUES (?, ?, ?, ?)"
+    ).run(data.nombre_cliente, data.repuestos, Number(data.total_lps) || 0, data.trabajo_terminado ? 1 : 0);
     return getById(database, entity, result.lastInsertRowid);
   }
 
@@ -184,6 +207,18 @@ function createRecord(database, entity, data) {
 function updateRecord(database, entity, id, data) {
   const current = getById(database, entity, id);
   if (!current) return null;
+  if (entity === "galera") {
+    database.prepare(
+      "UPDATE galera SET nombre_cliente = ?, repuestos = ?, total_lps = ?, trabajo_terminado = ? WHERE id_galera = ?"
+    ).run(
+      data.nombre_cliente ?? current.nombre_cliente,
+      data.repuestos ?? current.repuestos,
+      Number(data.total_lps ?? current.total_lps) || 0,
+      data.trabajo_terminado === undefined ? current.trabajo_terminado : data.trabajo_terminado ? 1 : 0,
+      id
+    );
+    return getById(database, entity, id);
+  }
   if (entity === "clientes") {
     database
       .prepare("UPDATE clientes SET nombre = ?, telefono = ? WHERE id_cliente = ?")
@@ -210,7 +245,7 @@ function updateRecord(database, entity, id, data) {
 }
 
 function deleteRecord(database, entity, id) {
-  const idColumn = entity === "clientes" ? "id_cliente" : entity === "motos" ? "id_moto" : "id_recomendado";
+  const idColumn = entity === "clientes" ? "id_cliente" : entity === "motos" ? "id_moto" : entity === "recomendado" ? "id_recomendado" : "id_galera";
   const result = database.prepare(`DELETE FROM ${entity} WHERE ${idColumn} = ?`).run(id);
   return result.changes > 0;
 }
