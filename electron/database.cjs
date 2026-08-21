@@ -217,7 +217,7 @@ function createRecord(database, entity, data) {
 
   if (entity === "galera") {
     const result = database.prepare(
-      "INSERT INTO galera (nombre_cliente) VALUES (?)"
+      "INSERT INTO galera (nombre_cliente, repuestos, total_lps, trabajo_terminado) VALUES (?, '', 0, 0)"
     ).run(data.nombre_cliente);
     return getById(database, entity, result.lastInsertRowid);
   }
