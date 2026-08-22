@@ -15,12 +15,28 @@ export interface GaleraPagada extends Galera {
 export interface GaleraItem {
   id_item: number;
   id_galera: number;
+  codigo: string;
+  cantidad: number;
   repuesto: string;
   precio_lps: number;
 }
 
 const desktopApi =
   typeof window !== "undefined" ? window.motoPartsDesktop : undefined;
+
+function normalizeGaleraItem(item: Partial<GaleraItem>): GaleraItem {
+  const cantidad = Number(item.cantidad ?? 1);
+  const precio = Number(item.precio_lps ?? 0);
+
+  return {
+    id_item: Number(item.id_item ?? Date.now()),
+    id_galera: Number(item.id_galera ?? 0),
+    codigo: String(item.codigo ?? "").trim(),
+    cantidad: Number.isFinite(cantidad) && cantidad > 0 ? cantidad : 1,
+    repuesto: String(item.repuesto ?? "").trim(),
+    precio_lps: Number.isFinite(precio) && precio >= 0 ? precio : 0,
+  };
+}
 
 function desktopRequest<T>(operation: string, payload: unknown = {}): T {
   const response = desktopApi?.databaseRequest(operation, payload) as
@@ -1456,7 +1472,12 @@ export const galeraDB = {
   getAll(): Galera[] {
     if (desktopApi) return desktopRequest<Galera[]>("getAll", { entity: "galera" });
     try {
-      return JSON.parse(localStorage.getItem("motoparts_galera") || "[]") as Galera[];
+      const records = JSON.parse(localStorage.getItem("motoparts_galera") || "[]") as Galera[];
+      return records.map((record) => ({
+        ...record,
+        items: (record.items ?? []).map((item) => normalizeGaleraItem(item)),
+        total_lps: Number(record.total_lps ?? 0),
+      }));
     } catch {
       return [];
     }
@@ -1478,9 +1499,9 @@ export const galeraDB = {
     const all = this.getAll();
     const record = all.find((item) => item.id_galera === id);
     if (!record) throw new Error("Galera no encontrada");
-    const item = { id_item: Date.now(), id_galera: id, ...data };
+    const item = normalizeGaleraItem({ id_item: Date.now(), id_galera: id, ...data });
     record.items.push(item);
-    record.total_lps = record.items.reduce((sum, current) => sum + current.precio_lps, 0);
+    record.total_lps = record.items.reduce((sum, current) => sum + current.precio_lps * current.cantidad, 0);
     localStorage.setItem("motoparts_galera", JSON.stringify(all));
     return item;
   },
@@ -1490,9 +1511,9 @@ export const galeraDB = {
     for (const record of all) {
       const before = record.items.length;
       record.items = record.items.filter((item) => item.id_item !== id);
-      record.total_lps = record.items.reduce((sum, item) => sum + item.precio_lps, 0);
+      record.total_lps = record.items.reduce((sum, item) => sum + item.precio_lps * item.cantidad, 0);
       if (record.items.length !== before) {
-        localStorage.setItem("motopartes_galera", JSON.stringify(all));
+        localStorage.setItem("motoparts_galera", JSON.stringify(all));
         return true;
       }
     }
@@ -1510,15 +1531,15 @@ export const galeraDB = {
     const all = this.getAll();
     const record = all.find((item) => item.id_galera === id);
     if (!record) return false;
-    const paid = JSON.parse(localStorage.getItem("motopartes_galera_pagadas") || "[]") as GaleraPagada[];
+    const paid = JSON.parse(localStorage.getItem("motoparts_galera_pagadas") || "[]") as GaleraPagada[];
     paid.unshift({ ...record, id_galera_pagada: Date.now(), pagado_en: new Date().toISOString() });
-    localStorage.setItem("motopartes_galera_pagadas", JSON.stringify(paid));
+    localStorage.setItem("motoparts_galera_pagadas", JSON.stringify(paid));
     return this.delete(id);
   },
   getPaid(): GaleraPagada[] {
     if (desktopApi) return desktopRequest<GaleraPagada[]>("getPaidGalera");
     try {
-      return JSON.parse(localStorage.getItem("motopartes_galera_pagadas") || "[]") as GaleraPagada[];
+      return JSON.parse(localStorage.getItem("motoparts_galera_pagadas") || "[]") as GaleraPagada[];
     } catch {
       return [];
     }

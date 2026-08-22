@@ -12,7 +12,8 @@
     "format": "oxfmt",
     "desktop": "npm run build:desktop && electron .",
     "desktop:render": "npm run build && cross-env MOTOPARTES_RENDER_URL=https://servicios-moto.onrender.com electron .",
-    "dist": "npm run build:desktop && electron-builder"
+    "rebuild:electron": "electron-rebuild --force --which-module better-sqlite3 --version 38.8.6",
+    "dist": "npm run build:desktop && npm run rebuild:electron && electron-builder"
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
@@ -27,7 +28,7 @@
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.0",
     "cross-env": "^10.0.0",
-    "electron": "^38.0.0",
+    "electron": "38.8.6",
     "electron-builder": "^26.0.12",
     "oxfmt": "^0.2.0",
     "tailwindcss": "^4.0.0",

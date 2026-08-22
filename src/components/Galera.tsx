@@ -7,11 +7,13 @@ interface Props {
 }
 
 interface ItemDraft {
+  codigo: string;
   repuesto: string;
+  cantidad: string;
   precio_lps: string;
 }
 
-const emptyDraft = (): ItemDraft => ({ repuesto: "", precio_lps: "" });
+const emptyDraft = (): ItemDraft => ({ codigo: "", repuesto: "", cantidad: "1", precio_lps: "" });
 
 export default function Galera({ showToast }: Props) {
   const [records, setRecords] = useState(() => galeraDB.getAll());
@@ -56,14 +58,26 @@ export default function Galera({ showToast }: Props) {
     event.preventDefault();
     const draft = drafts[id] ?? emptyDraft();
     const price = Number(draft.precio_lps);
-    if (!draft.repuesto.trim() || !Number.isFinite(price) || price < 0) {
-      showToast("Escribe el repuesto y un precio válido", "error");
+    const quantity = Number(draft.cantidad);
+
+    if (!draft.repuesto.trim()) {
+      showToast("Escribe el nombre del producto", "error");
       return;
     }
-    galeraDB.addItem(id, { repuesto: draft.repuesto.trim(), precio_lps: price });
+    if (!Number.isFinite(price) || price < 0 || !Number.isInteger(quantity) || quantity <= 0) {
+      showToast("Ingresa cantidad válida y precio del producto", "error");
+      return;
+    }
+
+    galeraDB.addItem(id, {
+      codigo: draft.codigo.trim(),
+      cantidad: quantity,
+      repuesto: draft.repuesto.trim(),
+      precio_lps: price,
+    });
     setDrafts((current) => ({ ...current, [id]: emptyDraft() }));
     refresh();
-    showToast("Repuesto agregado");
+    showToast("Producto agregado");
   }
 
   function markPaid(id: number) {
@@ -120,7 +134,101 @@ export default function Galera({ showToast }: Props) {
     textTransform: "uppercase",
     marginBottom: 6,
   };
-  const money = (value: number) => `L ${value.toFixed(2)}`;
+  const money = (value: number) => `L ${Number.isFinite(value) ? value.toFixed(2) : "0.00"}`;
+  const safePrice = (value: number | string | undefined) => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const safeQuantity = (value: number | string | undefined) => Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : 1;
+
+  function printGalera(record: GaleraRecord | GaleraPagada, state: "pendiente" | "pagada" = "pendiente") {
+    const printWindow = window.open("", "_blank", "width=900,height=1100");
+    if (!printWindow) {
+      showToast("No se pudo abrir la vista de impresión", "error");
+      return;
+    }
+
+    const rows = record.items
+      .map((item) => {
+        const qty = safeQuantity(item.cantidad);
+        const unit = safePrice(item.precio_lps);
+        const subtotal = unit * qty;
+        return `
+          <tr>
+            <td>${(item.codigo || "SIN CÓDIGO").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+            <td>${(item.repuesto || "-").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+            <td>${qty}</td>
+            <td>${money(unit)}</td>
+            <td>${money(subtotal)}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const dateInfo = state === "pagada" && "pagado_en" in record ? `
+      <div class="meta">
+        <span>Cliente: <strong>${record.nombre_cliente}</strong></span>
+        <span>Estado: Pagada</span>
+      </div>
+      <div class="meta" style="margin-top:6px;">
+        <span>Fecha de pago: <strong>${record.pagado_en}</strong></span>
+      </div>
+    ` : `
+      <div class="meta">
+        <span>Cliente: <strong>${record.nombre_cliente}</strong></span>
+        <span>Estado: Pendiente</span>
+      </div>
+    `;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Galera - ${record.nombre_cliente}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #111827; margin: 30px; }
+            .header { border-bottom: 2px solid #111827; padding-bottom: 12px; margin-bottom: 20px; }
+            h1 { margin: 0; font-size: 28px; }
+            .meta { display: flex; justify-content: space-between; margin-top: 12px; color: #374151; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px 10px; text-align: left; }
+            th { background: #f3f4f6; }
+            .total { margin-top: 18px; font-size: 18px; font-weight: 700; text-align: right; }
+            @media print {
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${state === "pagada" ? "Galera pagada" : "Galera"}</h1>
+            ${dateInfo}
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Producto</th>
+                <th>Cant.</th>
+                <th>Precio</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows || '<tr><td colspan="5">Sin productos</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="total">Total: ${money(Number(record.total_lps))}</div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
+  }
 
   return (
     <div style={{ padding: "32px 36px", maxWidth: 1050 }}>
@@ -178,13 +286,31 @@ export default function Galera({ showToast }: Props) {
           <section key={record.id_galera} style={{ background: "#16191f", border: "1px solid #252830", borderRadius: 10, marginBottom: 12, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830" }}>
               <div><div style={{ color: "#e8eaf0", fontWeight: 600, fontSize: 15 }}>{record.nombre_cliente}</div><div style={{ color: "#8b909e", fontSize: 11, marginTop: 3 }}>{record.items.length} repuesto{record.items.length !== 1 ? "s" : ""}</div></div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}><strong style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(record.total_lps))}</strong><button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ padding: "8px 13px", border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", cursor: "pointer", fontWeight: 600 }}>Pagado</button></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <strong style={{ color: "#f97316", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(record.total_lps))}</strong>
+                <button type="button" onClick={() => printGalera(record)} style={{ padding: "8px 10px", border: "1px solid rgba(59,130,246,0.45)", borderRadius: 6, background: "rgba(59,130,246,0.08)", color: "#7bb2ff", cursor: "pointer", fontWeight: 600 }}>Imprimir</button>
+                <button type="button" onClick={() => setConfirmId(record.id_galera)} style={{ padding: "8px 13px", border: "1px solid rgba(34,197,94,0.35)", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", cursor: "pointer", fontWeight: 600 }}>Pagado</button>
+              </div>
             </div>
             <div style={{ padding: "4px 18px 14px" }}>
-              {record.items.length === 0 && <div style={{ padding: "12px 0", color: "#8b909e", fontSize: 12 }}>Aún no hay repuestos en esta galera.</div>}
-              {record.items.map((entry) => <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}><span>{entry.repuesto}</span><span style={{ display: "flex", alignItems: "center", gap: 12 }}><span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(Number(entry.precio_lps))}</span><button type="button" onClick={() => deleteItem(entry.id_item)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Quitar</button></span></div>)}
-              <form onSubmit={(event) => addItem(record.id_galera, event)} style={{ display: "grid", gridTemplateColumns: "1fr 150px auto", gap: 10, marginTop: 12 }}>
-                <input style={inputStyle} value={draft.repuesto} placeholder="Agregar repuesto a este cliente" onChange={(event) => updateDraft(record.id_galera, "repuesto", event.target.value)} />
+              {record.items.length === 0 && <div style={{ padding: "12px 0", color: "#8b909e", fontSize: 12 }}>Aún no hay productos en esta galera.</div>}
+              {record.items.map((entry) => (
+                <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                    <span style={{ color: "#8b909e", fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>{entry.codigo || "SIN CÓDIGO"}</span>
+                    <span>{entry.repuesto}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ color: "#8b909e" }}>x{safeQuantity(entry.cantidad)}</span>
+                    <span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(safePrice(entry.precio_lps) * safeQuantity(entry.cantidad))}</span>
+                    <button type="button" onClick={() => deleteItem(entry.id_item)} style={{ border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>Quitar</button>
+                  </div>
+                </div>
+              ))}
+              <form onSubmit={(event) => addItem(record.id_galera, event)} style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 100px 150px auto", gap: 10, marginTop: 12 }}>
+                <input style={inputStyle} value={draft.codigo} placeholder="Código" onChange={(event) => updateDraft(record.id_galera, "codigo", event.target.value)} />
+                <input style={inputStyle} value={draft.repuesto} placeholder="Producto" onChange={(event) => updateDraft(record.id_galera, "repuesto", event.target.value)} />
+                <input style={inputStyle} type="number" min="1" step="1" value={draft.cantidad} placeholder="Cant." onChange={(event) => updateDraft(record.id_galera, "cantidad", event.target.value)} />
                 <input style={inputStyle} type="number" min="0" step="0.01" value={draft.precio_lps} placeholder="Precio en L" onChange={(event) => updateDraft(record.id_galera, "precio_lps", event.target.value)} />
                 <button type="submit" style={{ padding: "9px 14px", border: "1px solid #363a46", borderRadius: 6, background: "transparent", color: "#e8eaf0", cursor: "pointer" }}>+ Agregar</button>
               </form>
@@ -199,13 +325,34 @@ export default function Galera({ showToast }: Props) {
           {filteredPaidRecords.length === 0 ? (
             <div style={{ padding: 28, color: "#8b909e", fontSize: 13 }}>Todavía no hay galeras pagadas.</div>
           ) : filteredPaidRecords.map((record) => (
-            <div key={record.id_galera_pagada} style={{ padding: "14px 18px", borderBottom: "1px solid #1e2128" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <strong style={{ color: "#e8eaf0", fontSize: 13 }}>{record.nombre_cliente}</strong>
-                <span style={{ color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{money(Number(record.total_lps))}</span>
+            <div key={record.id_galera_pagada} style={{ background: "#16191f", borderBottom: "1px solid #1e2128", marginBottom: 12, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", background: "#1c1f28", borderBottom: "1px solid #252830" }}>
+                <div>
+                  <div style={{ color: "#e8eaf0", fontWeight: 600, fontSize: 15 }}>{record.nombre_cliente}</div>
+                  <div style={{ color: "#8b909e", fontSize: 11, marginTop: 3 }}>{record.items.length} producto{record.items.length !== 1 ? "s" : ""}</div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ color: "#22c55e", fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{money(Number(record.total_lps))}</span>
+                  <button type="button" onClick={() => printGalera(record, "pagada")} style={{ padding: "8px 10px", border: "1px solid rgba(59,130,246,0.45)", borderRadius: 6, background: "rgba(59,130,246,0.08)", color: "#7bb2ff", cursor: "pointer", fontWeight: 600 }}>Imprimir</button>
+                </div>
               </div>
-              <div style={{ color: "#8b909e", fontSize: 12 }}>{record.items.map((item) => `${item.repuesto} (${money(Number(item.precio_lps))})`).join(" · ")}</div>
-              <div style={{ color: "#4a4f5e", fontSize: 11, marginTop: 6 }}>Pagado: {record.pagado_en}</div>
+
+              <div style={{ padding: "4px 18px 14px" }}>
+                {record.items.length === 0 && <div style={{ padding: "12px 0", color: "#8b909e", fontSize: 12 }}>Aún no hay productos en esta galera.</div>}
+                {record.items.map((entry) => (
+                  <div key={entry.id_item} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: "1px solid #1e2128", color: "#e8eaf0", fontSize: 13 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                      <span style={{ color: "#8b909e", fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>{entry.codigo || "SIN CÓDIGO"}</span>
+                      <span>{entry.repuesto}</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ color: "#8b909e" }}>x{safeQuantity(entry.cantidad)}</span>
+                      <span style={{ color: "#8b909e", fontFamily: "'JetBrains Mono', monospace" }}>{money(safePrice(entry.precio_lps) * safeQuantity(entry.cantidad))}</span>
+                    </div>
+                  </div>
+                ))}
+                <div style={{ color: "#4a4f5e", fontSize: 11, marginTop: 10 }}>Pagado: {record.pagado_en}</div>
+              </div>
             </div>
           ))}
         </section>

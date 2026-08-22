@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS galera (
 CREATE TABLE IF NOT EXISTS galera_items (
     id_item INTEGER PRIMARY KEY AUTOINCREMENT,
     id_galera INTEGER NOT NULL,
+    codigo TEXT,
+    cantidad INTEGER NOT NULL DEFAULT 1 CHECK (cantidad > 0),
     repuesto TEXT NOT NULL,
     precio_lps REAL NOT NULL CHECK (precio_lps >= 0),
     FOREIGN KEY (id_galera) REFERENCES galera(id_galera) ON DELETE CASCADE
@@ -68,6 +70,8 @@ CREATE TABLE IF NOT EXISTS galera_pagadas (
 CREATE TABLE IF NOT EXISTS galera_pagadas_items (
     id_item INTEGER PRIMARY KEY AUTOINCREMENT,
     id_galera_pagada INTEGER NOT NULL,
+    codigo TEXT,
+    cantidad INTEGER NOT NULL DEFAULT 1 CHECK (cantidad > 0),
     repuesto TEXT NOT NULL,
     precio_lps REAL NOT NULL CHECK (precio_lps >= 0),
     FOREIGN KEY (id_galera_pagada) REFERENCES galera_pagadas(id_galera_pagada) ON DELETE CASCADE

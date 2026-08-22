@@ -2,17 +2,21 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Database = require("better-sqlite3");
 
+const DATABASE_BUSY_TIMEOUT_MS = 300000;
+
 function createDatabase(userDataPath) {
   fs.mkdirSync(userDataPath, { recursive: true });
   const databasePath = path.join(userDataPath, "motopartes.sqlite");
-  const database = new Database(databasePath);
+  const databaseExists = fs.existsSync(databasePath);
+  const database = new Database(databasePath, { timeout: DATABASE_BUSY_TIMEOUT_MS });
 
   database.pragma("foreign_keys = ON");
+  database.pragma(`busy_timeout = ${DATABASE_BUSY_TIMEOUT_MS}`);
   const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   database.exec(schema);
   migrateSchema(database);
 
-  return { database, databasePath };
+  return { database, databasePath, databaseExists };
 }
 
 function registerDatabaseHandlers(ipcMain, database) {
@@ -31,6 +35,13 @@ function registerDatabaseHandlers(ipcMain, database) {
     try {
       event.returnValue = handleRequest(database, request);
     } catch (error) {
+      if (error && typeof error === "object" && (error.code === "SQLITE_BUSY" || error.code === "SQLITE_LOCKED")) {
+        event.returnValue = {
+          error: "La base de datos está siendo utilizada por otro equipo. Espera unos segundos e inténtalo de nuevo.",
+          code: "DATABASE_BUSY",
+        };
+        return;
+      }
       event.returnValue = {
         error: error instanceof Error ? error.message : String(error),
       };
@@ -83,7 +94,22 @@ const recomendadoColumns = [
 
 function migrateSchema(database) {
   const version = database.prepare("SELECT version FROM schema_version LIMIT 1").get().version;
-  if (version >= 5) return;
+
+  const ensureGaleraColumns = () => {
+    const galeraItemColumns = new Set(database.prepare("PRAGMA table_info(galera_items)").all().map((column) => column.name));
+    for (const column of ["codigo", "cantidad"]) {
+      if (!galeraItemColumns.has(column)) {
+        database.exec(`ALTER TABLE galera_items ADD COLUMN ${quoteColumn(column)} ${column === "cantidad" ? "INTEGER NOT NULL DEFAULT 1" : "TEXT"}`);
+      }
+    }
+
+    const galeraPaidItemColumns = new Set(database.prepare("PRAGMA table_info(galera_pagadas_items)").all().map((column) => column.name));
+    for (const column of ["codigo", "cantidad"]) {
+      if (!galeraPaidItemColumns.has(column)) {
+        database.exec(`ALTER TABLE galera_pagadas_items ADD COLUMN ${quoteColumn(column)} ${column === "cantidad" ? "INTEGER NOT NULL DEFAULT 1" : "TEXT"}`);
+      }
+    }
+  };
 
   database.exec(`
     CREATE TABLE IF NOT EXISTS galera (
@@ -110,11 +136,6 @@ function migrateSchema(database) {
     );
   `);
 
-  if (version >= 4) {
-    database.prepare("UPDATE schema_version SET version = 5").run();
-    return;
-  }
-
   database.exec(`
     CREATE TABLE IF NOT EXISTS galera_items (
       id_item INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -124,6 +145,18 @@ function migrateSchema(database) {
       FOREIGN KEY (id_galera) REFERENCES galera(id_galera) ON DELETE CASCADE
     )
   `);
+
+  ensureGaleraColumns();
+
+  if (version >= 6) {
+    database.prepare("UPDATE schema_version SET version = 6").run();
+    return;
+  }
+
+  if (version >= 4) {
+    database.prepare("UPDATE schema_version SET version = 6").run();
+    return;
+  }
 
   const legacyGalera = database.prepare("SELECT id_galera, repuestos, total_lps FROM galera WHERE repuestos <> '' AND NOT EXISTS (SELECT 1 FROM galera_items WHERE galera_items.id_galera = galera.id_galera)").all();
   const insertLegacyItem = database.prepare("INSERT INTO galera_items (id_galera, repuesto, precio_lps) VALUES (?, ?, ?)");
@@ -210,13 +243,18 @@ function getAll(database, entity) {
 
 function getGaleraAll(database) {
   const records = database.prepare("SELECT id_galera, nombre_cliente FROM galera ORDER BY id_galera DESC").all();
-  const items = database.prepare("SELECT id_item, id_galera, repuesto, precio_lps FROM galera_items ORDER BY id_item").all();
+  const items = database.prepare("SELECT id_item, id_galera, codigo, cantidad, repuesto, precio_lps FROM galera_items ORDER BY id_item").all();
   return records.map((record) => {
-    const galeraItems = items.filter((item) => item.id_galera === record.id_galera);
+    const galeraItems = items.filter((item) => item.id_galera === record.id_galera).map((item) => ({
+      ...item,
+      codigo: item.codigo ?? "",
+      cantidad: Number.isFinite(Number(item.cantidad)) && Number(item.cantidad) > 0 ? Number(item.cantidad) : 1,
+      precio_lps: Number(item.precio_lps) || 0,
+    }));
     return {
       ...record,
       items: galeraItems,
-      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps), 0),
+      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps) * Number(item.cantidad), 0),
     };
   });
 }
@@ -229,13 +267,18 @@ function findActiveGaleraByClient(database, name) {
 
 function getPaidGaleraAll(database) {
   const records = database.prepare("SELECT id_galera_pagada, nombre_cliente, pagado_en FROM galera_pagadas ORDER BY id_galera_pagada DESC").all();
-  const items = database.prepare("SELECT id_item, id_galera_pagada, repuesto, precio_lps FROM galera_pagadas_items ORDER BY id_item").all();
+  const items = database.prepare("SELECT id_item, id_galera_pagada, codigo, cantidad, repuesto, precio_lps FROM galera_pagadas_items ORDER BY id_item").all();
   return records.map((record) => {
-    const galeraItems = items.filter((item) => item.id_galera_pagada === record.id_galera_pagada);
+    const galeraItems = items.filter((item) => item.id_galera_pagada === record.id_galera_pagada).map((item) => ({
+      ...item,
+      codigo: item.codigo ?? "",
+      cantidad: Number.isFinite(Number(item.cantidad)) && Number(item.cantidad) > 0 ? Number(item.cantidad) : 1,
+      precio_lps: Number(item.precio_lps) || 0,
+    }));
     return {
       ...record,
       items: galeraItems,
-      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps), 0),
+      total_lps: galeraItems.reduce((sum, item) => sum + Number(item.precio_lps) * Number(item.cantidad), 0),
     };
   });
 }
@@ -325,10 +368,15 @@ function deleteRecord(database, entity, id) {
 }
 
 function addGaleraItem(database, id, data) {
+  const cantidad = Number.isInteger(Number(data.cantidad)) && Number(data.cantidad) > 0 ? Number(data.cantidad) : 1;
+  const precio = Number(data.precio_lps) || 0;
+  const codigo = String(data.codigo ?? "").trim();
+  const repuesto = String(data.repuesto ?? "").trim();
+
   const result = database.prepare(
-    "INSERT INTO galera_items (id_galera, repuesto, precio_lps) VALUES (?, ?, ?)"
-  ).run(id, data.repuesto, Number(data.precio_lps) || 0);
-  return database.prepare("SELECT id_item, id_galera, repuesto, precio_lps FROM galera_items WHERE id_item = ?").get(result.lastInsertRowid);
+    "INSERT INTO galera_items (id_galera, codigo, cantidad, repuesto, precio_lps) VALUES (?, ?, ?, ?, ?)"
+  ).run(id, codigo || null, cantidad, repuesto, precio);
+  return database.prepare("SELECT id_item, id_galera, codigo, cantidad, repuesto, precio_lps FROM galera_items WHERE id_item = ?").get(result.lastInsertRowid);
 }
 
 function deleteGaleraItem(database, id) {
@@ -340,8 +388,8 @@ function markGaleraPaid(database, id) {
   if (!record) return false;
   const pay = database.transaction(() => {
     const result = database.prepare("INSERT INTO galera_pagadas (nombre_cliente) VALUES (?)").run(record.nombre_cliente);
-    const insertItem = database.prepare("INSERT INTO galera_pagadas_items (id_galera_pagada, repuesto, precio_lps) VALUES (?, ?, ?)");
-    for (const item of record.items) insertItem.run(result.lastInsertRowid, item.repuesto, item.precio_lps);
+    const insertItem = database.prepare("INSERT INTO galera_pagadas_items (id_galera_pagada, codigo, cantidad, repuesto, precio_lps) VALUES (?, ?, ?, ?, ?)");
+    for (const item of record.items) insertItem.run(result.lastInsertRowid, item.codigo || null, Number(item.cantidad) || 1, item.repuesto, Number(item.precio_lps) || 0);
     database.prepare("DELETE FROM galera WHERE id_galera = ?").run(id);
   });
   pay();

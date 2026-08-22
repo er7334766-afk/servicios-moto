@@ -1,16 +1,17 @@
-const { app, BrowserWindow, ipcMain, Menu } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu } = require("electron");
 const path = require("node:path");
 const { createDatabase, registerDatabaseHandlers } = require("./database.cjs");
 
 let database;
+const sharedDatabasePath = process.env.MOTOPARTES_DATABASE_PATH || "\\\\100.105.212.66\\Compartido";
 
-function createWindow() {
+function createWindow(onLoadingReady) {
   const window = new BrowserWindow({
     width: 1400,
     height: 900,
     minWidth: 1000,
     minHeight: 700,
-    show: true,
+    show: false,
     icon: path.join(__dirname, "logo.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -27,6 +28,8 @@ function createWindow() {
   window.webContents.on("did-finish-load", () => {
     if (window.webContents.getURL().includes("loading.html")) {
       console.log("Pantalla de carga visible; esperando frontend...");
+      window.show();
+      setImmediate(onLoadingReady);
     } else {
       console.log(`Frontend cargado: ${renderUrl || "build local"}`);
     }
@@ -38,23 +41,36 @@ function createWindow() {
     console.log(`Frontend: ${message} (${source}:${line})`);
   });
 
-  window.loadFile(loadingPage).then(() => {
-    if (renderUrl) {
-      return window.loadURL(renderUrl);
-    }
+  const loadFrontend = () => {
+    if (renderUrl) return window.loadURL(renderUrl);
     return window.loadFile(frontendPage);
-  });
+  };
+
+  window.loadFile(loadingPage);
+  return loadFrontend;
 }
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  const result = createDatabase(app.getPath("userData"));
-  database = result.database;
-  registerDatabaseHandlers(ipcMain, database);
-  createWindow();
+  const databasePath = path.join(sharedDatabasePath, "motopartes.sqlite");
+  console.log(`Base de datos: ${databasePath}`);
+  const loadFrontend = createWindow(() => {
+    try {
+      const result = createDatabase(sharedDatabasePath);
+      console.log(result.databaseExists ? "Base de datos existente abierta" : "Base de datos no encontrada; creada en la carpeta compartida");
+      database = result.database;
+      registerDatabaseHandlers(ipcMain, database);
+      loadFrontend();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`No se pudo abrir la base de datos: ${message}`);
+      dialog.showErrorBox("No se pudo abrir Inversiones Rodriguez", `No se pudo acceder a la base de datos compartida:\n\n${message}\n\nVerifica que tengas acceso a ${sharedDatabasePath} y vuelve a intentarlo.`);
+      app.quit();
+    }
+  });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(() => {});
   });
 });
 
